@@ -1,0 +1,166 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<log>
+    <global>
+    </global>
+    <global>
+        <string key="concept:name" value="name"/>
+    </global>
+    <trace>
+        <string key="concept:name" value="1"/>
+        <event>
+            <string key="concept:name" value="a"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="c"/>
+        </event>
+    </trace>
+
+    <trace>
+        <string key="concept:name" value="2"/>
+        <event>
+            <string key="concept:name" value="a"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="d"/>
+        </event>
+    </trace>
+
+    <trace>
+        <string key="concept:name" value="3"/>
+        <event>
+            <string key="concept:name" value="a"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="c"/>
+        </event>
+    </trace>
+
+    <trace>
+        <string key="concept:name" value="4"/>
+        <event>
+            <string key="concept:name" value="a"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="d"/>
+        </event>
+    </trace>
+
+    <trace>
+        <string key="concept:name" value="5"/>
+        <event>
+            <string key="concept:name" value="a"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="c"/>
+        </event>
+    </trace>
+
+    <trace>
+        <string key="concept:name" value="6"/>
+        <event>
+            <string key="concept:name" value="a"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="d"/>
+        </event>
+    </trace>
+
+    <trace>
+        <string key="concept:name" value="7"/>
+        <event>
+            <string key="concept:name" value="a"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="c"/>
+        </event>
+    </trace>
+
+    <trace>
+        <string key="concept:name" value="8"/>
+        <event>
+            <string key="concept:name" value="a"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+    </trace>
+
+    <trace>
+        <string key="concept:name" value="9"/>
+        <event>
+            <string key="concept:name" value="a"/>
+        </event>
+        <event>
+            <string key="concept:name" value="c"/>
+        </event>
+        <event>
+            <string key="concept:name" value="b"/>
+        </event>
+    </trace>
+</log>
