@@ -21,11 +21,12 @@ for place in places:
     net.places.add(places[place])
 
 transitions = {
+    # PetriNet.Transition(<unique name in petri net>, <label>)
     'a': PetriNet.Transition('a', 'a'),
     'b': PetriNet.Transition('b', 'b'),
     'c': PetriNet.Transition('c', 'c'),
     'd': PetriNet.Transition('d', 'd'),
-    't_1': PetriNet.Transition('t_1', None),  # silent transition
+    't_1': PetriNet.Transition('t_1', None),  # silent transition, since label=None
 }
 
 for transition in transitions:
@@ -67,7 +68,8 @@ for t in net.transitions:
         model_cost_function[t] = 1
         sync_cost_function[t] = 0
     else:
-        model_cost_function[t] = 1
+        # cost for silent transitions/ tau transitions
+        model_cost_function[t] = 0
 
 number_synchronous_moves_per_transition = {}
 number_model_moves_per_transition = {}
@@ -110,9 +112,10 @@ for trace in log:
                 number_synchronous_moves_per_transition[move[0]] = 1 * trace_frequency
 
     print("alignment length: " + str(len(alignment['alignment'])))
+    print("alignment cost (based on standard cost function): " + str(alignment['cost']))
     print(alignment)
     print()
-    print()
+
 
 print("number_synchronous_moves_per_transition")
 print(number_synchronous_moves_per_transition)
