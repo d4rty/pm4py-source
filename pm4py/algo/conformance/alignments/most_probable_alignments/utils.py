@@ -62,3 +62,4 @@ def calculate_model_move_probability(event_log, petri_net, initial_marking, fina
             print("Name:            " + str(move['name']))
             print("Marking after:   " + str(move['marking_after_transition']))
             print()
+
