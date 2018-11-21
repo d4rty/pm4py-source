@@ -190,9 +190,15 @@ def __search(sync_net, ini, fin, cost_function, skip):
 
 def __reconstruct_alignment(state, visited, queued, traversed):
     parent = state.p
-    alignment = [{"label": state.t.label, "name": state.t.name}]
+    alignment = [{"marking_before_transition": state.p.m,
+                  "label": state.t.label,
+                  "name": state.t.name,
+                  "marking_after_transition": state.m}]
     while parent.p is not None:
-        alignment = [{"label": parent.t.label, "name": parent.t.name}] + alignment
+        alignment = [{"marking_before_transition": parent.p.m,
+                      "label": parent.t.label,
+                      "name": parent.t.name,
+                      "marking_after_transition": parent.m}] + alignment
         parent = parent.p
     return {'alignment': alignment, 'cost': state.g, 'visited_states': visited, 'queued_states': queued,
             'traversed_arcs': traversed}

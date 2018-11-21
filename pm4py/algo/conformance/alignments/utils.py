@@ -24,6 +24,7 @@ def construct_standard_cost_function(synchronous_product_net, skip):
             costs[t] = STD_MODEL_LOG_MOVE_COST
         else:
             if skip == t.label[0] and t.label[1] is None:
+                # silent transitions don't have a label
                 costs[t] = STD_TAU_COST
             else:
                 costs[t] = STD_SYNC_COST

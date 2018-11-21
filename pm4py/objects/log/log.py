@@ -28,6 +28,9 @@ class Event(Mapping):
     def __repr__(self):
         return str(dict(self))
 
+    def get_dict(self):
+        return self._dict
+
 
 class EventLog(Sequence):
 
@@ -171,6 +174,9 @@ class Trace(Sequence):
 
     def append(self, x):
         self._list.append(x)
+
+    def get_event_list(self):
+        return self._list
 
     def _set_attributes(self, attributes):
         self._attributes = attributes
