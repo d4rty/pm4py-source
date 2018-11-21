@@ -28,6 +28,7 @@ from pm4py.objects.log.util.xes import DEFAULT_NAME_KEY
 from pm4py.objects.petri.synchronous_product import construct_cost_aware
 from pm4py.objects.petri.utils import construct_trace_net_cost_aware
 from pm4py.util.constants import PARAMETER_CONSTANT_ACTIVITY_KEY
+from pm4py.visualization.petrinet import factory as pn_vis_factory
 
 PARAM_TRACE_COST_FUNCTION = 'trace_cost_function'
 PARAM_MODEL_COST_FUNCTION = 'model_cost_function'
@@ -111,6 +112,11 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None):
             trace_net, trace_im, trace_fm, petri_net, initial_marking, final_marking, alignments.utils.SKIP,
             trace_net_costs, parameters[PARAM_MODEL_COST_FUNCTION], revised_sync)
 
+    # view synchronous product net
+    gviz = pn_vis_factory.apply(sync_prod, sync_initial_marking, sync_final_marking,
+                                parameters={"debug": True, "format": "svg"})
+    # pn_vis_factory.view(gviz)
+
     return apply_sync_prod(sync_prod, sync_initial_marking, sync_final_marking, cost_function,
                            alignments.utils.SKIP)
 
@@ -184,9 +190,9 @@ def __search(sync_net, ini, fin, cost_function, skip):
 
 def __reconstruct_alignment(state, visited, queued, traversed):
     parent = state.p
-    alignment = [state.t.label]
+    alignment = [{"label": state.t.label, "name": state.t.name}]
     while parent.p is not None:
-        alignment = [parent.t.label] + alignment
+        alignment = [{"label": parent.t.label, "name": parent.t.name}] + alignment
         parent = parent.p
     return {'alignment': alignment, 'cost': state.g, 'visited_states': visited, 'queued_states': queued,
             'traversed_arcs': traversed}
