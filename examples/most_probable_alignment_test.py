@@ -6,6 +6,7 @@ from pm4py.objects.petri.petrinet import PetriNet
 from pm4py.objects.petri import utils as petri_net_utils
 from pm4py.visualization.petrinet import factory as petri_net_visualization_factory
 from pm4py.objects.petri.petrinet import Marking
+from pm4py.algo.conformance.alignments.most_probable_alignments.a_star import apply
 
 event_log_path = os.path.join('C:/', 'Users', 'Daniel', 'Desktop', 'master_thesis_code', 'pm4py-source-forked', 'tests',
                               'input_data')
@@ -75,4 +76,9 @@ parameters["format"] = "svg"
 
 
 log_move_probabilities = calculate_log_move_probability(event_log, prior)
-model_move_probability = calculate_model_move_probability(event_log, petri_net, initial_marking, final_marking)
+model_move_probabilities = calculate_model_move_probability(event_log, petri_net, initial_marking, final_marking)
+
+print(log_move_probabilities)
+print(model_move_probabilities)
+
+apply(event_log[0], petri_net, initial_marking, final_marking, model_move_probabilities, log_move_probabilities)
