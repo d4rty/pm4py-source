@@ -65,8 +65,7 @@ final_marking = Marking()
 final_marking[places['p_4']] = 1
 
 # petri net visualization
-parameters = {}
-parameters["format"] = "svg"
+parameters = {"format": "svg"}
 # parameters['debug'] = True
 # parameters = None
 # gviz = petri_net_visualization_factory.apply(petri_net, initial_marking, final_marking, parameters=parameters)
@@ -81,4 +80,12 @@ model_move_probabilities = calculate_model_move_probability(event_log, petri_net
 print(log_move_probabilities)
 print(model_move_probabilities)
 
-apply(event_log[0], petri_net, initial_marking, final_marking, model_move_probabilities, log_move_probabilities)
+alignment = apply(event_log[len(event_log) - 2], petri_net, initial_marking, final_marking, log_move_probabilities,
+                  model_move_probabilities)
+
+for a in alignment['alignment']:
+    print(a)
+
+print()
+print("probability: ", alignment['probability'])
+print_alignment(alignment)

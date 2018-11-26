@@ -148,7 +148,7 @@ def __search(sync_net, ini, fin, cost_function, skip):
     closed = set()
     h, x = __compute_exact_heuristic(sync_net, incidence_matrix, ini, cost_vec, fin_vec)
     ini_state = SearchTuple(0 + h, 0, h, ini, None, None, x, True)
-    open_set = [ini_state]
+    open_set = [ini_state]  # visited markings
     visited = 0
     queued = 0
     traversed = 0
@@ -158,7 +158,7 @@ def __search(sync_net, ini, fin, cost_function, skip):
             h, x = __compute_exact_heuristic(sync_net, incidence_matrix, curr.m, cost_vec, fin_vec)
             tp = SearchTuple(curr.g + h, curr.g, h, curr.m, curr.p, curr.t, x, __trust_solution(x))
             heapq.heappush(open_set, tp)
-            heapq.heapify(open_set)
+            heapq.heapify(open_set)  # transform a populated list into a heap
             continue
 
         visited += 1
@@ -168,6 +168,7 @@ def __search(sync_net, ini, fin, cost_function, skip):
             return __reconstruct_alignment(curr, visited, queued, traversed)
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
             if curr.t is not None and __is_log_move(curr.t, skip) and __is_model_move(t, skip):
+                # ('?!')
                 continue
             traversed += 1
             new_marking = petri.semantics.execute(t, sync_net, current_marking)

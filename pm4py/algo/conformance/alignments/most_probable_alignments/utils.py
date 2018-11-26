@@ -101,3 +101,42 @@ def calculate_model_move_probability(event_log, petri_net, initial_marking, fina
         for transition in marking['outgoing_transitions']:
             transition["model_move_probability"] = transition["frequency"] / total_number_fired_transitions_from_marking
     return log_move_probabilities_given_marking
+
+
+def print_alignment(alignment):
+    trace_steps = []
+    model_steps = []
+    max_label_length = 0
+    for step in alignment['alignment']:
+        trace_steps.append(" " + str(step['label'][0]) + " ")
+        model_steps.append(" " + str(step['label'][1]) + " ")
+        if len(step['label'][0]) > max_label_length:
+            max_label_length = len(str(step['label'][0]))
+        if len(str(step['label'][1])) > max_label_length:
+            max_label_length = len(str(step['label'][1]))
+    for i in range(len(trace_steps)):
+        if len(str(trace_steps[i])) - 2 < max_label_length:
+            step_length = len(str(trace_steps[i])) - 2
+            spaces_to_add = max_label_length - step_length
+            for j in range(spaces_to_add):
+                if j % 2 == 0:
+                    trace_steps[i] = trace_steps[i] + " "
+                else:
+                    trace_steps[i] = " " + trace_steps[i]
+        print(trace_steps[i], end='|')
+    divider = ""
+    length_divider = len(trace_steps) * (max_label_length + 3)
+    for i in range(length_divider):
+        divider += "-"
+    print('\n' + divider)
+    for i in range(len(model_steps)):
+        if len(model_steps[i]) - 2 < max_label_length:
+            step_length = len(model_steps[i]) - 2
+            spaces_to_add = max_label_length - step_length
+            for j in range(spaces_to_add):
+                if j % 2 == 0:
+                    model_steps[i] = model_steps[i] + " "
+                else:
+                    model_steps[i] = " " + model_steps[i]
+
+        print(model_steps[i], end='|')
