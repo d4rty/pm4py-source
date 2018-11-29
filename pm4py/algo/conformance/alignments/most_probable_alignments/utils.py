@@ -103,7 +103,9 @@ def calculate_model_move_probability(event_log, petri_net, initial_marking, fina
     return log_move_probabilities_given_marking
 
 
-def print_alignment(alignment):
+def print_most_probable_alignment(alignment):
+    print("\nprobability: ", alignment['probability'], ' ~%.2f' % (alignment['probability'] * 100), '%')
+
     trace_steps = []
     model_steps = []
     max_label_length = 0
@@ -140,3 +142,4 @@ def print_alignment(alignment):
                     model_steps[i] = " " + model_steps[i]
 
         print(model_steps[i], end='|')
+    print('\n')

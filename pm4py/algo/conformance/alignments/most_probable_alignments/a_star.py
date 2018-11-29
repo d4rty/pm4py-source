@@ -52,7 +52,7 @@ def apply(trace, petri_net, initial_marking, final_marking, log_move_probabiliti
     # view synchronous product net
     gviz = pn_vis_factory.apply(sync_prod, sync_initial_marking, sync_final_marking,
                                 parameters={"debug": True, "format": "svg"})
-    # pn_vis_factory.view(gviz)
+    pn_vis_factory.view(gviz)
 
     return apply_sync_prod(sync_prod, sync_initial_marking, sync_final_marking, log_move_probabilities,
                            model_move_probabilities, alignments.utils.SKIP)
@@ -222,21 +222,17 @@ def __compute_exact_heuristic(sync_net, incidence_matrix, marking):
 
 
 def __apply_log_transformation(probability):
+    # TODO optimize --> apply log transformation not on the fly but apply it if possible before
+    # --> try to avoid duplicate calls
     if not (0 <= probability <= 1):
         raise ValueError('probability needs to be in the range [0,1]')
-    if probability == 0:
-        return math.inf
-    elif probability > 0:
+    if probability > 0:
         return -math.log(probability)
+    elif probability == 0:
+        # -log(0) ~ math.inf
+        return math.inf
     else:
         raise ValueError('Log Transformation not applicable to numbers below 0')
-
-
-def __get_tuple_from_queue(marking, queue):
-    for t in queue:
-        if t.m == marking:
-            return t
-    return None
 
 
 @dataclass
@@ -261,17 +257,15 @@ class SearchTuple:
             if self.h < other.h:
                 return True
 
+    def __get_firing_sequence(self):
+        ret = []
+        if self.p is not None:
+            ret = ret + self.p.__get_firing_sequence()
+        if self.t is not None:
+            ret.append(self.t)
+        return ret
 
-def __get_firing_sequence(self):
-    ret = []
-    if self.p is not None:
-        ret = ret + self.p.__get_firing_sequence()
-    if self.t is not None:
-        ret.append(self.t)
-    return ret
-
-
-def __repr__(self):
-    string_build = ["\nm=" + str(self.m), " f=" + str(self.f), ' g=' + str(self.g), " h=" + str(self.h),
-                    " path=" + str(self.__get_firing_sequence()) + "\n\n"]
-    return " ".join(string_build)
+    def __repr__(self):
+        string_build = ["\nm=" + str(self.m), " f=" + str(self.f), ' g=' + str(self.g), " h=" + str(self.h),
+                        " path=" + str(self.__get_firing_sequence()) + "\n\n"]
+        return " ".join(string_build)

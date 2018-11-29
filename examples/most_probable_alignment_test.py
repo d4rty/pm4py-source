@@ -1,5 +1,8 @@
 import os
-from pm4py.util.create_artificial_event_log import create_artificial_event_log
+
+from pm4py.objects.log.importer.xes.factory import import_log_from_string
+from pm4py.objects.log.log import Trace
+from pm4py.util.create_artificial_event_log import create_artificial_event_log_as_xes_file, create_xes_string
 from pm4py.objects.log.importer.xes import factory as xes_importer
 from pm4py.algo.conformance.alignments.most_probable_alignments.utils import *
 from pm4py.objects.petri.petrinet import PetriNet
@@ -7,26 +10,6 @@ from pm4py.objects.petri import utils as petri_net_utils
 from pm4py.visualization.petrinet import factory as petri_net_visualization_factory
 from pm4py.objects.petri.petrinet import Marking
 from pm4py.algo.conformance.alignments.most_probable_alignments.a_star import apply
-
-event_log_path = os.path.join('C:/', 'Users', 'Daniel', 'Desktop', 'master_thesis_code', 'pm4py-source-forked', 'tests',
-                              'input_data')
-event_log_name = "trace_from_paper_automatic_root_cause_identification"
-
-traces = [
-    {"frequency": 40, "events": ["A", "B", "C"]},
-    {"frequency": 10, "events": ["A", "B", "D"]},
-    {"frequency": 80, "events": ["A", "B", "B", "C"]},
-    {"frequency": 20, "events": ["A", "B", "B", "D"]},
-    {"frequency": 40, "events": ["A", "B", "B", "B", "C"]},
-    {"frequency": 10, "events": ["A", "B", "B", "B", "D"]},
-    {"frequency": 1, "events": ["A", "B", "B", "B", "B", "B", "B", "B", "C"]},
-    {"frequency": 1, "events": ["A", "B", "B", "B", "B"]},
-    {"frequency": 1, "events": ["A", "C", "B"]},
-]
-
-create_artificial_event_log(event_log_path, event_log_name, traces, force=True)
-event_log = xes_importer.import_log(os.path.join(event_log_path, event_log_name) + '.xes')
-prior = {'A': 1, 'B': 1, 'C': 1, 'D': 1, '*': 1}
 
 # create petri net #####################################################################################################
 petri_net = PetriNet("running_example")
@@ -74,18 +57,47 @@ parameters = {"format": "svg"}
 # end create petri net #################################################################################################
 
 
-log_move_probabilities = calculate_log_move_probability(event_log, prior)
+event_log_path = os.path.join('C:/', 'Users', 'Daniel', 'Desktop', 'master_thesis_code', 'pm4py-source-forked', 'tests',
+                              'input_data')
+event_log_name = "trace_from_paper_automatic_root_cause_identification"
+
+traces = [
+    {"frequency": 40, "events": ["A", "B", "C"]},
+    {"frequency": 10, "events": ["A", "B", "D"]},
+    {"frequency": 80, "events": ["A", "B", "B", "C"]},
+    {"frequency": 20, "events": ["A", "B", "B", "D"]},
+    {"frequency": 40, "events": ["A", "B", "B", "B", "C"]},
+    {"frequency": 10, "events": ["A", "B", "B", "B", "D"]},
+    {"frequency": 1, "events": ["A", "B", "B", "B", "B", "B", "B", "B", "C"]},
+    {"frequency": 1, "events": ["A", "B", "B", "B", "B"]},
+    {"frequency": 1, "events": ["A", "C", "B"]},
+]
+
+create_artificial_event_log_as_xes_file(event_log_path, event_log_name, traces, force=True)
+event_log = xes_importer.import_log(os.path.join(event_log_path, event_log_name) + '.xes')
+
+log_move_prior = {'A': 1, 'B': 1, 'C': 1, 'D': 1, '*': 1}
+
+log_move_probabilities = calculate_log_move_probability(event_log, log_move_prior)
 model_move_probabilities = calculate_model_move_probability(event_log, petri_net, initial_marking, final_marking)
 
 print(log_move_probabilities)
 print(model_move_probabilities)
 
-alignment = apply(event_log[len(event_log) - 2], petri_net, initial_marking, final_marking, log_move_probabilities,
-                  model_move_probabilities)
+# alignment = apply(event_log[len(event_log) - 2], petri_net, initial_marking, final_marking, log_move_probabilities,
+#                   model_move_probabilities)
+#
+# for a in alignment['alignment']:
+#     print(a)
+#
+#
+# print_most_probable_alignment(alignment)
 
-for a in alignment['alignment']:
-    print(a)
 
-print()
-print("probability: ", alignment['probability'])
-print_alignment(alignment)
+traces = [
+    {"frequency": 1, "events": ["A", "B", "B", "B", "B", "B", "B"]},
+]
+alignment2 = apply(import_log_from_string(create_xes_string(traces))[0], petri_net, initial_marking, final_marking,
+                   log_move_probabilities,
+                   model_move_probabilities)
+print_most_probable_alignment(alignment2)
