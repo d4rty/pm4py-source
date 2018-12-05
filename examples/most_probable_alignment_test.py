@@ -79,7 +79,7 @@ event_log = xes_importer.import_log(os.path.join(event_log_path, event_log_name)
 log_move_prior = {'A': 1, 'B': 1, 'C': 1, 'D': 1, '*': 1}
 
 log_move_probabilities = calculate_log_move_probability(event_log, log_move_prior)
-model_move_probabilities = calculate_model_move_probability(event_log, petri_net, initial_marking, final_marking)
+model_move_probabilities = calculate_model_move_probabilities_without_prior(event_log, petri_net, initial_marking, final_marking)
 
 print(log_move_probabilities)
 print(model_move_probabilities)

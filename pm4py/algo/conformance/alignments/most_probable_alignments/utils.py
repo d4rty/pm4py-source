@@ -42,7 +42,7 @@ def _sum_up_prior_and_log_event_frequencies(event_frequencies_log, event_frequen
         return event_frequencies_log
 
 
-def calculate_model_move_probability(event_log, petri_net, initial_marking, final_marking):
+def calculate_model_move_probabilities_without_prior(event_log, petri_net, initial_marking, final_marking):
     # if parameters are none, the standard cost function will be applied ->
     #   cost 1000   log/model moves
     #   cost 1      tau moves

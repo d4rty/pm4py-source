@@ -52,13 +52,14 @@ def apply(trace, petri_net, initial_marking, final_marking, log_move_probabiliti
     # view synchronous product net
     gviz = pn_vis_factory.apply(sync_prod, sync_initial_marking, sync_final_marking,
                                 parameters={"debug": True, "format": "svg"})
-    pn_vis_factory.view(gviz)
+    # pn_vis_factory.view(gviz)
 
-    return apply_sync_prod(sync_prod, sync_initial_marking, sync_final_marking, log_move_probabilities,
+    return apply_sync_prod(sync_prod, petri_net, sync_initial_marking, sync_final_marking, log_move_probabilities,
                            model_move_probabilities, alignments.utils.SKIP)
 
 
-def apply_sync_prod(sync_prod, initial_marking, final_marking, log_move_probabilities, model_move_probabilities, skip):
+def apply_sync_prod(sync_prod, process_net, initial_marking, final_marking, log_move_probabilities,
+                    model_move_probabilities, skip):
     """
     Performs the basic alignment search on top of the synchronous product net, given a cost function and skip-symbol
 
@@ -67,7 +68,6 @@ def apply_sync_prod(sync_prod, initial_marking, final_marking, log_move_probabil
     sync_prod: :class:`pm4py.objects.petri.net.PetriNet` synchronous product net
     initial_marking: :class:`pm4py.objects.petri.net.Marking` initial marking in the synchronous product net
     final_marking: :class:`pm4py.objects.petri.net.Marking` final marking in the synchronous product net
-    cost_function: :class:`dict` cost function mapping transitions to the synchronous product net
     skip: :class:`Any` symbol to use for skips in the alignment
 
     Returns
@@ -75,10 +75,12 @@ def apply_sync_prod(sync_prod, initial_marking, final_marking, log_move_probabil
     dictionary : :class:`dict` with keys **alignment**, **cost**, **visited_states**, **queued_states**
     and **traversed_arcs**
     """
-    return __search(sync_prod, initial_marking, final_marking, log_move_probabilities, model_move_probabilities, skip)
+    return __search(sync_prod, process_net, initial_marking, final_marking, log_move_probabilities,
+                    model_move_probabilities, skip)
 
 
-def __search(sync_net, initial_marking, final_marking, log_move_probabilities, model_move_probabilities, skip):
+def __search(sync_net, process_net, initial_marking, final_marking, log_move_probabilities, model_move_probabilities,
+             skip):
     incidence_matrix = petri.incidence_matrix.construct(sync_net)
 
     closed = set()
@@ -106,7 +108,7 @@ def __search(sync_net, initial_marking, final_marking, log_move_probabilities, m
             if new_marking in closed:
                 continue
 
-            cost = __get_move_cost(t, current_marking, log_move_probabilities, model_move_probabilities)
+            cost = __get_move_cost(t, current_marking, log_move_probabilities, model_move_probabilities, process_net)
             g = current_state.g + cost
 
             alt = next((enum[1] for enum in enumerate(open_set) if enum[1].m == new_marking), None)
@@ -154,32 +156,34 @@ def __is_log_move(t, skip):
     return t.label[0] != skip and t.label[1] == skip
 
 
-def __get_move_cost(transition, marking, log_move_probabilities, model_move_probabilities):
+def __get_move_cost(transition, marking, log_move_probabilities, model_move_probabilities, process_net):
     if __is_model_move(transition, alignments.utils.SKIP):
-        return __apply_log_transformation(__get_model_move_probability(transition, marking, model_move_probabilities))
+        return __apply_log_transformation(
+            __get_model_move_probability(transition, marking, model_move_probabilities, process_net))
     elif __is_log_move(transition, alignments.utils.SKIP):
         return __apply_log_transformation(__get_log_move_probability(transition, log_move_probabilities))
     else:
         # synchronous move
-        cost = min(__apply_log_transformation(__get_log_move_probability(transition, log_move_probabilities)),
-                   __apply_log_transformation(
-                       __get_model_move_probability(transition, marking, model_move_probabilities)))
+        cost = min(
+            __apply_log_transformation(__get_log_move_probability(transition, log_move_probabilities)),
+            __apply_log_transformation(
+                __get_model_move_probability(transition, marking, model_move_probabilities, process_net)))
         return cost
 
 
-def __get_move_probability(transition, marking, log_move_probabilities, model_move_probabilities):
+def __get_move_probability(transition, marking, log_move_probabilities, model_move_probabilities, process_net):
     if __is_model_move(transition, alignments.utils.SKIP):
-        return __get_model_move_probability(transition, marking, model_move_probabilities)
+        return __get_model_move_probability(transition, marking, model_move_probabilities, process_net)
     elif __is_log_move(transition, alignments.utils.SKIP):
-        return __get_log_move_probability(transition, log_move_probabilities)
+        return __get_log_move_probability(transition, log_move_probabilities, process_net)
     else:
         # synchronous move
         cost = max(__get_log_move_probability(transition, log_move_probabilities),
-                   __get_model_move_probability(transition, marking, model_move_probabilities))
+                   __get_model_move_probability(transition, marking, model_move_probabilities, process_net))
         return cost
 
 
-def __get_model_move_probability(transition, marking_sync_product_net, model_move_probabilities):
+def __get_model_move_probability(transition, marking_sync_product_net, model_move_probabilities, process_net):
     def is_model_place(p):
         return p.name[0] == alignments.utils.SKIP and p.name[1] != alignments.utils.SKIP
 
@@ -209,6 +213,10 @@ def __get_model_move_probability(transition, marking_sync_product_net, model_mov
     else:
         # something went wrong, markings should be unique
         raise Exception('Multiple markings founded')
+
+
+def calculate_model_move_prior():
+    pass
 
 
 def __get_log_move_probability(transition, log_move_probabilities):
