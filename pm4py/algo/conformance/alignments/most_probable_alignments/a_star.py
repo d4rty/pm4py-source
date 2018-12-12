@@ -1,5 +1,6 @@
 import math
 import heapq
+import logging
 from typing import Any
 
 from dataclasses import dataclass
@@ -11,8 +12,6 @@ from pm4py.objects.log.util.xes import DEFAULT_NAME_KEY
 from pm4py.objects.petri.petrinet import Marking
 from pm4py.util.constants import PARAMETER_CONSTANT_ACTIVITY_KEY
 from pm4py.visualization.petrinet import factory as pn_vis_factory
-
-test_set = set()
 
 
 def apply(trace, petri_net, initial_marking, final_marking, log_move_probabilities, model_move_probabilities,
@@ -32,7 +31,9 @@ def apply(trace, petri_net, initial_marking, final_marking, log_move_probabiliti
                                                                                               alignments.utils.SKIP)
 
     # view synchronous product net
-    gviz = pn_vis_factory.apply(sync_prod, sync_initial_marking, sync_final_marking,
+    gviz = pn_vis_factory.apply(sync_prod,
+                                sync_initial_marking,
+                                sync_final_marking,
                                 parameters={"debug": True, "format": "svg"})
     # pn_vis_factory.view(gviz)
 
@@ -43,19 +44,15 @@ def apply(trace, petri_net, initial_marking, final_marking, log_move_probabiliti
 def apply_sync_prod(sync_prod, process_net, initial_marking, final_marking, log_move_probabilities,
                     model_move_probabilities, skip):
     """
-    Performs the basic alignment search on top of the synchronous product net, given a cost function and skip-symbol
 
-    Parameters
-    ----------
-    sync_prod: :class:`pm4py.objects.petri.net.PetriNet` synchronous product net
-    initial_marking: :class:`pm4py.objects.petri.net.Marking` initial marking in the synchronous product net
-    final_marking: :class:`pm4py.objects.petri.net.Marking` final marking in the synchronous product net
-    skip: :class:`Any` symbol to use for skips in the alignment
-
-    Returns
-    -------
-    dictionary : :class:`dict` with keys **alignment**, **cost**, **visited_states**, **queued_states**
-    and **traversed_arcs**
+    :param sync_prod:
+    :param process_net:
+    :param initial_marking:
+    :param final_marking:
+    :param log_move_probabilities:
+    :param model_move_probabilities:
+    :param skip:
+    :return:
     """
     return __search(sync_prod, process_net, initial_marking, final_marking, log_move_probabilities,
                     model_move_probabilities, skip)
@@ -79,7 +76,6 @@ def __search(sync_net, process_net, initial_marking, final_marking, log_move_pro
         closed.add(current_marking)
 
         if current_marking == final_marking:
-            print(test_set)
             return __reconstruct_alignment(current_state, visited, queued, traversed)
 
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
@@ -140,6 +136,15 @@ def __is_log_move(t, skip):
 
 
 def __get_move_cost(transition, marking, log_move_probabilities, model_move_probabilities, process_net):
+    """
+
+    :param transition:
+    :param marking:
+    :param log_move_probabilities:
+    :param model_move_probabilities:
+    :param process_net:
+    :return:
+    """
     if __is_model_move(transition, alignments.utils.SKIP):
         return __apply_log_transformation(
             __get_model_move_probability(transition, marking, model_move_probabilities, process_net))
@@ -155,6 +160,15 @@ def __get_move_cost(transition, marking, log_move_probabilities, model_move_prob
 
 
 def __get_move_probability(transition, marking, log_move_probabilities, model_move_probabilities, process_net):
+    """
+
+    :param transition:
+    :param marking:
+    :param log_move_probabilities:
+    :param model_move_probabilities:
+    :param process_net:
+    :return:
+    """
     if __is_model_move(transition, alignments.utils.SKIP):
         return __get_model_move_probability(transition, marking, model_move_probabilities, process_net)
     elif __is_log_move(transition, alignments.utils.SKIP):
@@ -167,11 +181,23 @@ def __get_move_probability(transition, marking, log_move_probabilities, model_mo
 
 
 def __sync_process_net_place_is_model_place(p):
+    """
+    :param p: Place object; represents a place of a synchronous product net
+    :return: Boolean - true if the synchronous product net state represents a state of the process net
+    """
     return p.name[0] == alignments.utils.SKIP and p.name[1] != alignments.utils.SKIP
 
 
 def __get_model_move_probability(transition, marking_sync_product_net, model_move_probabilities_without_prior,
                                  process_net):
+    """
+
+    :param transition: Transition object
+    :param marking_sync_product_net:
+    :param model_move_probabilities_without_prior:
+    :param process_net:
+    :return:
+    """
     constant_prior = 1
     wanted_transition = transition.name[1]
 
@@ -200,12 +226,6 @@ def __get_model_move_probability(transition, marking_sync_product_net, model_mov
         # first, look if probability with applied prior has been already calculated
         for t in model_move_probabilities_for_marking[0]['outgoing_transitions']:
             if t["unique_name"] == wanted_transition and "model_move_probability_with_applied_prior" in t:
-                print("probability has been already calculated")
-                print(wanted_transition)
-                print(marking_process_net_dict)
-                print(t["model_move_probability_with_applied_prior"])
-                print()
-                test_set.add(t["model_move_probability_with_applied_prior"])
                 return t["model_move_probability_with_applied_prior"]
 
         # current marking exists in model_move_probabilities
@@ -231,17 +251,16 @@ def __get_model_move_probability(transition, marking_sync_product_net, model_mov
         res = None
         # calculate possibilities for model move given the marking based on new (added prior) frequencies
         for t in model_move_probabilities_for_marking[0]['outgoing_transitions']:
+            t['model_move_probability_with_applied_prior'] = t['frequency'] / frequency_of_outgoing_arcs_for_marking
             print("probability calculation of: " + str(t['unique_name']))
             print("for marking: " + str(marking_process_net))
-            print(str(t['frequency'] )+ " / " + str(frequency_of_outgoing_arcs_for_marking))
-            t['model_move_probability_with_applied_prior'] = t['frequency'] / frequency_of_outgoing_arcs_for_marking
+            print(str(t['frequency']) + " / " + str(frequency_of_outgoing_arcs_for_marking))
+            print(str(t['model_move_probability_with_applied_prior']) + "\n")
             if t['unique_name'] == wanted_transition:
                 res = t['model_move_probability_with_applied_prior']
         print(wanted_transition)
         print(marking_process_net_dict)
-        print(res)
-        print()
-        test_set.add(res)
+        print(str(res) + "\n")
         return res
 
     elif len(model_move_probabilities_for_marking) == 0:
@@ -262,11 +281,11 @@ def __get_model_move_probability(transition, marking_sync_product_net, model_mov
             if t['unique_name'] == wanted_transition:
                 res = t['model_move_probability_with_applied_prior']
         model_move_probabilities_without_prior.append(unseen_marking)
+        print("unseen marking")
         print(wanted_transition)
         print(marking_process_net_dict)
         print(res)
         print()
-        test_set.add(res)
         return res
     else:
         # something went wrong, markings should be unique
@@ -283,7 +302,6 @@ def __get_log_move_probability(transition, log_move_probabilities):
 
 def __compute_exact_heuristic(sync_net, incidence_matrix, marking):
     # TODO
-    # smallest floating-point value after 0
     return 0
 
 
