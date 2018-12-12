@@ -95,7 +95,7 @@ print(model_move_probabilities)
 
 
 traces = [
-    {"frequency": 1, "events": ["A", "B", "B", "B", "B", "B", "B"]},
+    {"frequency": 1, "events": ["A", "B", "C", "D"]},
 ]
 alignment2 = apply(import_log_from_string(create_xes_string(traces))[0], petri_net, initial_marking, final_marking,
                    log_move_probabilities,

@@ -1,17 +1,3 @@
-"""
-This module contains code that allows us to compute alignments on the basis of a regular A* search on the state-space
-of the synchronous product net of a trace and a Petri net.
-The main algorithm follows [1]_.
-When running the log-based variant, the code is running in parallel on a trace based level.
-Furthermore, by default, the code applies heuristic estimation, and prefers those states that have the smallest h-value
-in case the f-value of two states is equal.
-
-References
-----------
-.. [1] Sebastiaan J. van Zelst et al., "Tuning Alignment Computation: An Experimental Evaluation",
-      ATAED@Petri Nets/ACSD 2017: 6-20. `http://ceur-ws.org/Vol-1847/paper01.pdf`_.
-
-"""
 import math
 import heapq
 from typing import Any
@@ -22,15 +8,11 @@ from pm4py import util as pm4pyutil
 from pm4py.algo.conformance import alignments
 from pm4py.objects import petri
 from pm4py.objects.log.util.xes import DEFAULT_NAME_KEY
+from pm4py.objects.petri.petrinet import Marking
 from pm4py.util.constants import PARAMETER_CONSTANT_ACTIVITY_KEY
 from pm4py.visualization.petrinet import factory as pn_vis_factory
 
-PARAM_TRACE_COST_FUNCTION = 'trace_cost_function'
-PARAM_MODEL_COST_FUNCTION = 'model_cost_function'
-PARAM_SYNC_COST_FUNCTION = 'sync_cost_function'
-
-PARAMETERS = [PARAM_TRACE_COST_FUNCTION, PARAM_MODEL_COST_FUNCTION, PARAM_SYNC_COST_FUNCTION,
-              pm4pyutil.constants.PARAMETER_CONSTANT_ACTIVITY_KEY]
+test_set = set()
 
 
 def apply(trace, petri_net, initial_marking, final_marking, log_move_probabilities, model_move_probabilities,
@@ -97,6 +79,7 @@ def __search(sync_net, process_net, initial_marking, final_marking, log_move_pro
         closed.add(current_marking)
 
         if current_marking == final_marking:
+            print(test_set)
             return __reconstruct_alignment(current_state, visited, queued, traversed)
 
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
@@ -119,7 +102,7 @@ def __search(sync_net, process_net, initial_marking, final_marking, log_move_pro
                 heapq.heapify(open_set)
             queued += 1
             probability = current_state.probability * __get_move_probability(t, current_marking, log_move_probabilities,
-                                                                             model_move_probabilities)
+                                                                             model_move_probabilities, process_net)
             h, x = __derive_heuristic(incidence_matrix, None, None, t, current_state.h)
             tp = SearchTuple(g + h, g, h, new_marking, current_state, t, probability)
 
@@ -175,7 +158,7 @@ def __get_move_probability(transition, marking, log_move_probabilities, model_mo
     if __is_model_move(transition, alignments.utils.SKIP):
         return __get_model_move_probability(transition, marking, model_move_probabilities, process_net)
     elif __is_log_move(transition, alignments.utils.SKIP):
-        return __get_log_move_probability(transition, log_move_probabilities, process_net)
+        return __get_log_move_probability(transition, log_move_probabilities)
     else:
         # synchronous move
         cost = max(__get_log_move_probability(transition, log_move_probabilities),
@@ -183,33 +166,108 @@ def __get_move_probability(transition, marking, log_move_probabilities, model_mo
         return cost
 
 
-def __get_model_move_probability(transition, marking_sync_product_net, model_move_probabilities, process_net):
-    def is_model_place(p):
-        return p.name[0] == alignments.utils.SKIP and p.name[1] != alignments.utils.SKIP
+def __sync_process_net_place_is_model_place(p):
+    return p.name[0] == alignments.utils.SKIP and p.name[1] != alignments.utils.SKIP
 
-    marking_of_process_net = {}
+
+def __get_model_move_probability(transition, marking_sync_product_net, model_move_probabilities_without_prior,
+                                 process_net):
+    constant_prior = 1
+    wanted_transition = transition.name[1]
+
+    marking_process_net = Marking()
+    marking_process_net_dict = {}  # dict of marking - key: place name, value: number tokens
+
     for place in marking_sync_product_net:
-        if is_model_place(place):
+        if __sync_process_net_place_is_model_place(place):
             number_tokens = marking_sync_product_net[place]
             process_net_place_name = place.name[1]
-            marking_of_process_net[process_net_place_name] = number_tokens
+            # create marking object of process net
+            for p in process_net.places:
+                if p.name == process_net_place_name:
+                    marking_process_net[p] = number_tokens
+            marking_process_net_dict[process_net_place_name] = number_tokens
 
-    model_move_probabilities_for_marking = [d for d in model_move_probabilities if
-                                            d['marking'] == marking_of_process_net]
+    model_move_probabilities_for_marking = [d for d in model_move_probabilities_without_prior if
+                                            d['marking'] == marking_process_net_dict]
+    # example: [{'marking': {'p_1': 1}, 'outgoing_transitions':
+    #                                        [{'unique_name': 't_A', 'frequency': 203, 'model_move_probability': 1.0}]}]
+
+    # set of Transition objects, that are currently in the process net enabled
+    enabled_transitions_for_marking = petri.semantics.enabled_transitions(process_net, marking_process_net)
 
     if len(model_move_probabilities_for_marking) == 1:
+        # first, look if probability with applied prior has been already calculated
+        for t in model_move_probabilities_for_marking[0]['outgoing_transitions']:
+            if t["unique_name"] == wanted_transition and "model_move_probability_with_applied_prior" in t:
+                print("probability has been already calculated")
+                print(wanted_transition)
+                print(marking_process_net_dict)
+                print(t["model_move_probability_with_applied_prior"])
+                print()
+                test_set.add(t["model_move_probability_with_applied_prior"])
+                return t["model_move_probability_with_applied_prior"]
+
         # current marking exists in model_move_probabilities
-        for tr in model_move_probabilities_for_marking[0]['outgoing_transitions']:
-            if tr['unique_name'] == transition.name[1]:
-                return tr['model_move_probability']
-        # no probability for given transition
-        # TODO apply prior?!
-        return 0
+        frequency_of_outgoing_arcs_for_marking = 0
+        for e_t in enabled_transitions_for_marking:
+            # e_t is a Transition object
+            transition_found = False
+
+            for t in model_move_probabilities_for_marking[0]['outgoing_transitions']:
+                # t is a dict, e.g. {'unique_name': 't_A', 'frequency': 204, 'model_move_probability': 1.0}
+                if t['unique_name'] == e_t.name:
+                    transition_found = True
+                    t['frequency'] += constant_prior
+                    frequency_of_outgoing_arcs_for_marking += t['frequency']
+
+            if not transition_found:
+                # transition given the marking was never executed in the training set (model_move_probabilities)
+                new = {'unique_name': e_t.name, 'frequency': constant_prior,
+                       'model_move_probability_with_applied_prior': None}
+                model_move_probabilities_for_marking[0]['outgoing_transitions'].append(new)
+                frequency_of_outgoing_arcs_for_marking += constant_prior
+
+        res = None
+        # calculate possibilities for model move given the marking based on new (added prior) frequencies
+        for t in model_move_probabilities_for_marking[0]['outgoing_transitions']:
+            print("probability calculation of: " + str(t['unique_name']))
+            print("for marking: " + str(marking_process_net))
+            print(str(t['frequency'] )+ " / " + str(frequency_of_outgoing_arcs_for_marking))
+            t['model_move_probability_with_applied_prior'] = t['frequency'] / frequency_of_outgoing_arcs_for_marking
+            if t['unique_name'] == wanted_transition:
+                res = t['model_move_probability_with_applied_prior']
+        print(wanted_transition)
+        print(marking_process_net_dict)
+        print(res)
+        print()
+        test_set.add(res)
+        return res
 
     elif len(model_move_probabilities_for_marking) == 0:
         # current marking does not exist in model_move_probabilities
-        # TODO apply prior?!
-        return 0
+        frequency_of_outgoing_arcs_for_marking = 0
+        unseen_marking = {'marking': marking_process_net_dict, 'outgoing_transitions': []}
+        for e_t in enabled_transitions_for_marking:
+            # e_t is a Transition object
+            frequency_of_outgoing_arcs_for_marking += constant_prior
+            unseen_marking['outgoing_transitions'].append(
+                {'unique_name': e_t.name, 'frequency': constant_prior,
+                 'model_move_probability_with_applied_prior': None})
+        res = None
+        # calculate possibilities for model move
+        for t in unseen_marking['outgoing_transitions']:
+            p = t['frequency'] / frequency_of_outgoing_arcs_for_marking
+            t['model_move_probability_with_applied_prior'] = p
+            if t['unique_name'] == wanted_transition:
+                res = t['model_move_probability_with_applied_prior']
+        model_move_probabilities_without_prior.append(unseen_marking)
+        print(wanted_transition)
+        print(marking_process_net_dict)
+        print(res)
+        print()
+        test_set.add(res)
+        return res
     else:
         # something went wrong, markings should be unique
         raise Exception('Multiple markings founded')
