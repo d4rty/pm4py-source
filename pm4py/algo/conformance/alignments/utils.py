@@ -1,7 +1,7 @@
 from pm4py.objects import log as pm4py_log
 
 SKIP = '>>'
-STD_MODEL_LOG_MOVE_COST = 10000
+STD_MODEL_LOG_MOVE_COST = 1000
 STD_TAU_COST = 1
 STD_SYNC_COST = 0
 
