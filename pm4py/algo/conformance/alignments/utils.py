@@ -40,3 +40,81 @@ def construct_event_level_cost_function(log, activity_cost_map, activity_key=pm4
             t_costs.append(activity_cost_map[e[activity_key]])
         costs.append(t_costs)
     return costs
+
+
+def print_alignment(alignment):
+    """
+    Takes an alignment and prints it to the console, e.g.:
+     A  | B  | C  | D  |
+    --------------------
+     A  | B  | C  | >> |
+
+    :param alignment: <class 'dict'>
+    :return: Nothing
+    """
+    # only most probable alignments contain a probability
+    if 'probability' in alignment:
+        print("\nprobability: ", alignment['probability'], ' ~%.2f' % (alignment['probability'] * 100), '%')
+
+    __print_single_alignment(alignment["alignment"])
+
+
+def print_alignments(alignments):
+    """
+    Takes alignments and prints them to the console, e.g.:
+     A  | B  | C  | D  |
+    --------------------
+     A  | B  | C  | >> |
+
+    :param alignments: <class 'dict'>
+    :return: Nothing
+    """
+    # only most probable alignments contain a probability
+    if 'probability' in alignments:
+        print("\nprobability: ", alignments['probability'], ' ~%.2f' % (alignments['probability'] * 100), '%')
+
+    print()
+    total_number_alignments = len(alignments["alignments"])
+    for i, alignment in enumerate(alignments["alignments"]):
+        print("Alignment %i/%i" % (i + 1, total_number_alignments))
+        __print_single_alignment(alignment)
+
+
+def __print_single_alignment(step_list):
+    trace_steps = []
+    model_steps = []
+    max_label_length = 0
+    for step in step_list:
+        trace_steps.append(" " + str(step['label'][0]) + " ")
+        model_steps.append(" " + str(step['label'][1]) + " ")
+        if len(step['label'][0]) > max_label_length:
+            max_label_length = len(str(step['label'][0]))
+        if len(str(step['label'][1])) > max_label_length:
+            max_label_length = len(str(step['label'][1]))
+    for i in range(len(trace_steps)):
+        if len(str(trace_steps[i])) - 2 < max_label_length:
+            step_length = len(str(trace_steps[i])) - 2
+            spaces_to_add = max_label_length - step_length
+            for j in range(spaces_to_add):
+                if j % 2 == 0:
+                    trace_steps[i] = trace_steps[i] + " "
+                else:
+                    trace_steps[i] = " " + trace_steps[i]
+        print(trace_steps[i], end='|')
+    divider = ""
+    length_divider = len(trace_steps) * (max_label_length + 3)
+    for i in range(length_divider):
+        divider += "-"
+    print('\n' + divider)
+    for i in range(len(model_steps)):
+        if len(model_steps[i]) - 2 < max_label_length:
+            step_length = len(model_steps[i]) - 2
+            spaces_to_add = max_label_length - step_length
+            for j in range(spaces_to_add):
+                if j % 2 == 0:
+                    model_steps[i] = model_steps[i] + " "
+                else:
+                    model_steps[i] = " " + model_steps[i]
+
+        print(model_steps[i], end='|')
+    print('\n')

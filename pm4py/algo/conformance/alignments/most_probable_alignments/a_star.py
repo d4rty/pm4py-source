@@ -16,6 +16,8 @@ from pm4py.visualization.petrinet import factory as pn_vis_factory
 
 def apply(trace, petri_net, initial_marking, final_marking, log_move_probabilities, model_move_probabilities,
           parameters=None):
+    print("apply")
+    print(trace)
     activity_key = DEFAULT_NAME_KEY if parameters is None or PARAMETER_CONSTANT_ACTIVITY_KEY not in parameters else \
         parameters[pm4pyutil.constants.PARAMETER_CONSTANT_ACTIVITY_KEY]
 
@@ -80,7 +82,7 @@ def __search(sync_net, process_net, initial_marking, final_marking, log_move_pro
 
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
             if current_state.t is not None and __is_log_move(current_state.t, skip) and __is_model_move(t, skip):
-                # TODO why?? maybe the node sequence (LOG_MOVE->MODEL_MOVE) can't be optimal, therefore skip it
+                # TODO why?? maybe the node sequence (LOG_MOVE->MODEL_MOVE) can't be optimal, therefore skip it?!
                 continue
             traversed += 1
             new_marking = petri.semantics.execute(t, sync_net, current_marking)

@@ -22,6 +22,12 @@ def create_artificial_event_log_as_xes_file(path, file_name, traces, force=False
 
 
 def create_xes_string(traces):
+    """
+    Given the trace information (:param traces) this function returns a string that represents the traces in the XES
+    format that can be directly stored into a .xes file.
+    :param traces: <class 'list'>, e.g.: [{'frequency': 40, 'events': ['A', 'B', 'C']}, ...]
+    :return: 'str'
+    """
     res = ''
     res += "<?xml version='1.0' encoding='UTF-8'?>" + "\n"
     res += '<log>\n<global></global>\n<global>\n<string key="concept:name" value="name"/>\n</global>' + '\n'

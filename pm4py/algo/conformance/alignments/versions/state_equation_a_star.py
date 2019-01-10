@@ -12,7 +12,9 @@ References
       ATAED@Petri Nets/ACSD 2017: 6-20. `http://ceur-ws.org/Vol-1847/paper01.pdf`_.
 
 """
+import copy
 import heapq
+import math
 from typing import Any
 
 import numpy as np
@@ -62,7 +64,7 @@ def get_best_worst_cost(petri_net, initial_marking, final_marking):
     return best_worst['cost'] // alignments.utils.STD_MODEL_LOG_MOVE_COST
 
 
-def apply(trace, petri_net, initial_marking, final_marking, parameters=None):
+def apply(trace, petri_net, initial_marking, final_marking, find_all_opt_alignments=False, parameters=None):
     """
     Performs the basic alignment search, given a trace and a net.
 
@@ -113,15 +115,15 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None):
             trace_net_costs, parameters[PARAM_MODEL_COST_FUNCTION], revised_sync)
 
     # view synchronous product net
-    gviz = pn_vis_factory.apply(sync_prod, sync_initial_marking, sync_final_marking,
-                                parameters={"debug": True, "format": "svg"})
+    # gviz = pn_vis_factory.apply(sync_prod, sync_initial_marking, sync_final_marking,
+    #                             parameters={"debug": True, "format": "svg"})
     # pn_vis_factory.view(gviz)
 
     return apply_sync_prod(sync_prod, sync_initial_marking, sync_final_marking, cost_function,
-                           alignments.utils.SKIP)
+                           alignments.utils.SKIP, find_all_opt_alignments)
 
 
-def apply_sync_prod(sync_prod, initial_marking, final_marking, cost_function, skip):
+def apply_sync_prod(sync_prod, initial_marking, final_marking, cost_function, skip, find_all_opt_alignments=False):
     """
     Performs the basic alignment search on top of the synchronous product net, given a cost function and skip-symbol
 
@@ -138,14 +140,17 @@ def apply_sync_prod(sync_prod, initial_marking, final_marking, cost_function, sk
     dictionary : :class:`dict` with keys **alignment**, **cost**, **visited_states**, **queued_states**
     and **traversed_arcs**
     """
-    return __search(sync_prod, initial_marking, final_marking, cost_function, skip)
+    if find_all_opt_alignments:
+        return __search_for_all_optimal_paths(sync_prod, initial_marking, final_marking, cost_function, skip)
+    else:
+        return __search(sync_prod, initial_marking, final_marking, cost_function, skip)
 
 
 def __search(sync_net, ini, fin, cost_function, skip):
     incidence_matrix = petri.incidence_matrix.construct(sync_net)
     ini_vec, fin_vec, cost_vec = __vectorize_initial_final_cost(incidence_matrix, ini, fin, cost_function)
 
-    closed = set()
+    closed_set = set()
     h, x = __compute_exact_heuristic(sync_net, incidence_matrix, ini, cost_vec, fin_vec)
     ini_state = SearchTuple(0 + h, 0, h, ini, None, None, x, True)
     open_set = [ini_state]  # visited markings
@@ -163,19 +168,22 @@ def __search(sync_net, ini, fin, cost_function, skip):
 
         visited += 1
         current_marking = curr.m
-        closed.add(current_marking)
+        closed_set.add(current_marking)
         if current_marking == fin:
             return __reconstruct_alignment(curr, visited, queued, traversed)
+
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
+            # TODO why is it not possible to have a log move first and afterwards a model move?
             if curr.t is not None and __is_log_move(curr.t, skip) and __is_model_move(t, skip):
-                # ('?!')
                 continue
             traversed += 1
             new_marking = petri.semantics.execute(t, sync_net, current_marking)
-            if new_marking in closed:
+            if new_marking in closed_set:
                 continue
             g = curr.g + cost_function[t]
 
+            # enum is a tuple (int, SearchTuple), alt is a SearchTuple
+            # TODO ask why so "complicated"?
             alt = next((enum[1] for enum in enumerate(open_set) if enum[1].m == new_marking), None)
             if alt is not None:
                 if g >= alt.g:
@@ -189,7 +197,116 @@ def __search(sync_net, ini, fin, cost_function, skip):
             heapq.heapify(open_set)
 
 
+def __search_for_all_optimal_paths(sync_net, ini, fin, cost_function, skip):
+    # TODO only for debugging - switch off heuristic ###################################################################
+    def __trust_solution(x):
+        return True
+
+    def __compute_exact_heuristic(sync_net, incidence_matrix, curr, cost_vec, fin_vec):
+        return 0, 0
+
+    def __derive_heuristic(incidence_matrix, cost_vec, x, t, h):
+        return 0, 0
+
+    # TODO end #########################################################################################################
+
+    def get_search_tuple(marking, set_of_search_tuples):
+        for st in set_of_search_tuples:
+            if st.m == marking:
+                return st
+        return None
+
+    incidence_matrix = petri.incidence_matrix.construct(sync_net)
+    ini_vec, fin_vec, cost_vec = __vectorize_initial_final_cost(incidence_matrix, ini, fin, cost_function)
+
+    solution_found = False
+    distance_limit = math.inf
+
+    visited_nodes = []
+    h, x = __compute_exact_heuristic(sync_net, incidence_matrix, ini, cost_vec, fin_vec)
+    ini_state = SearchTuple(0 + h, 0, h, ini, [], [], x, True)
+    open_set = [ini_state]  # visited markings
+    visited = 0
+    queued = 0
+    traversed = 0
+    while not len(open_set) == 0:
+        curr = heapq.heappop(open_set)
+        if not curr.trust:
+            h, x = __compute_exact_heuristic(sync_net, incidence_matrix, curr.m, cost_vec, fin_vec)
+            tp = SearchTuple(curr.g + h, curr.g, h, curr.m, curr.p, curr.t, x, __trust_solution(x))
+            heapq.heappush(open_set, tp)
+            heapq.heapify(open_set)  # transform a populated list into a heap
+            continue
+
+        # skip nodes that are worse than already known solutions
+        if curr.f <= distance_limit:
+
+            visited += 1
+            current_marking = curr.m
+            # closed_set.append(curr)
+            if current_marking == fin:
+                solution_found = True
+                distance_limit = curr.g
+
+            # examine all successor nodes
+            for t in petri.semantics.enabled_transitions(sync_net, current_marking):
+                # if curr.t is not None and __is_log_move(curr.t, skip) and __is_model_move(t, skip):
+                #    # TODO is there never a log move and a successive model move in an optimal alignment ?
+                #   continue
+                traversed += 1
+
+                new_marking = petri.semantics.execute(t, sync_net, current_marking)
+
+                st = get_search_tuple(new_marking, visited_nodes)
+                if st and st.m == new_marking:
+                    if st.g > curr.g + cost_function[t]:
+                        # calculate heuristic
+                        h, x = __derive_heuristic(incidence_matrix, cost_vec, curr.x, t, curr.h)
+
+                        # visited_nodes.remove(st)
+                        # del st
+                        # st = SearchTuple(g + h, g, h, new_marking, [curr], [t], x, __trust_solution(x))
+                        st.f = g + h
+                        st.g = g
+                        st.h = h
+                        st.m = new_marking
+                        st.p = [curr]
+                        st.t = [t]
+                        st.x = x
+                        st.trust = __trust_solution(x)
+                        # visited_nodes.append(st)
+                    elif st and st.g == curr.g + cost_function[t]:
+                        # visited_nodes.remove(st)
+                        st.p.append(curr)
+                        st.t.append(t)
+                        # visited_nodes.append(st)
+                else:
+                    g = curr.g + cost_function[t]
+                    # enum is a tuple (int, SearchTuple), alt is a SearchTuple
+                    # TODO ask why so "complicated"?
+                    alt = next((enum[1] for enum in enumerate(open_set) if enum[1].m == new_marking), None)
+                    if alt is not None:
+                        if g >= alt.g:
+                            continue
+                        open_set.remove(alt)
+                        heapq.heapify(open_set)
+                    queued += 1
+                    h, x = __derive_heuristic(incidence_matrix, cost_vec, curr.x, t, curr.h)
+                    tp = SearchTuple(g + h, g, h, new_marking, [curr], [t], x, __trust_solution(x))
+                    visited_nodes.append(tp)
+                    heapq.heappush(open_set, tp)
+                    heapq.heapify(open_set)
+        else:
+            continue
+    if solution_found:
+        for state in visited_nodes:
+            # there is only one final state
+            if state.m == fin:
+                return __reconstruct_all_optimal_alignments(state, visited, queued, traversed)
+
+
 def __reconstruct_alignment(state, visited, queued, traversed):
+    # state is a SearchTuple
     parent = state.p
     alignment = [{"marking_before_transition": state.p.m,
                   "label": state.t.label,
@@ -202,6 +319,43 @@ def __reconstruct_alignment(state, visited, queued, traversed):
                       "marking_after_transition": parent.m}] + alignment
         parent = parent.p
     return {'alignment': alignment, 'cost': state.g, 'visited_states': visited, 'queued_states': queued,
+            'traversed_arcs': traversed}
+
+
+def __reconstruct_all_optimal_alignments(state, visited, queued, traversed):
+    # state is a SearchTuple
+    res_alignments = []
+    # TODO if an alignment consists of only one step this doesn't currently work
+    for index, predecessor in enumerate(state.p):
+        res_alignments.append(
+            [{"marking_before_transition": predecessor.m,
+              "predecessor_search_tuple": predecessor,
+              "label": state.t[index].label,
+              "name": state.t[index].name,
+              "marking_after_transition": state.m}]
+        )
+    alignment_reconstruct_incomplete = True
+    while alignment_reconstruct_incomplete:
+        alignment_reconstruct_incomplete = False
+        # iterate over partial alignments and check if there are predecessors
+        for index, alignment in enumerate(res_alignments):
+            search_tuple_to_add = alignment[0]["predecessor_search_tuple"]
+            if search_tuple_to_add:
+                # alignment is not yet complete
+                if search_tuple_to_add.p and len(search_tuple_to_add.p) > 0:
+                    alignment_reconstruct_incomplete = True
+                    # multiple predecessors ->  copy current incomplete alignment adequate times and extend each
+                    #                           alignment copy with the predecessor step
+                    alignment_to_extend = res_alignments.pop(index)
+                    for i, predecessor in enumerate(search_tuple_to_add.p):
+                        res_alignments.append([{"marking_before_transition": predecessor.m,
+                                                "predecessor_search_tuple": predecessor,
+                                                "label": search_tuple_to_add.t[i].label,
+                                                "name": search_tuple_to_add.t[i].name,
+                                                "marking_after_transition": search_tuple_to_add.m}]
+                                              + copy.copy(alignment_to_extend))
+
+    return {'alignments': res_alignments, 'cost': state.g, 'visited_states': visited, 'queued_states': queued,
             'traversed_arcs': traversed}
 
 
@@ -275,9 +429,9 @@ class SearchTuple:
     g: float
     h: float
     m: petri.petrinet.Marking
-    p: Any
-    t: petri.petrinet.PetriNet.Transition
-    x: Any
+    p: Any  # predecessor node
+    t: petri.petrinet.PetriNet.Transition  # transition from predecessor node to this node
+    x: Any  # belongs to heuristic value
     trust: bool
 
     def __lt__(self, other):
@@ -303,6 +457,8 @@ class SearchTuple:
         return ret
 
     def __repr__(self):
+        # TODO wieder entfernen
+        return id(self).__str__() + " " + self.m.__str__()
         string_build = ["\nm=" + str(self.m), " f=" + str(self.f), ' g=' + str(self.g), " h=" + str(self.h),
                         " path=" + str(self.__get_firing_sequence()) + "\n\n"]
         return " ".join(string_build)

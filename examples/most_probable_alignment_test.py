@@ -9,6 +9,8 @@ from pm4py.objects.petri import utils as petri_net_utils
 from pm4py.visualization.petrinet import factory as petri_net_visualization_factory
 from pm4py.objects.petri.petrinet import Marking
 from pm4py.algo.conformance.alignments.most_probable_alignments.a_star import apply
+from pm4py.algo.conformance.alignments import factory
+from pm4py.algo.conformance.alignments.utils import print_alignment
 
 # create petri net #####################################################################################################
 petri_net_from_paper = PetriNet("running_example")
@@ -79,17 +81,17 @@ log_move_prior = {'A': 1, 'B': 1, 'C': 1, 'D': 1, '*': 1}
 
 log_move_probabilities = calculate_log_move_probability(event_log, log_move_prior)
 model_move_probabilities = calculate_model_move_probabilities_without_prior(event_log, petri_net_from_paper,
-                                                                            initial_marking,
-                                                                            final_marking)
+                                                                            initial_marking, final_marking)
 
 print(log_move_probabilities)
 print(model_move_probabilities)
 
 traces = [
-    {"frequency": 1, "events": ["A", "B", "C", "D"]},
+    {"frequency": 1, "events": ["A", "B", "C"]},
 ]
+
 alignment2 = apply(import_log_from_string(create_xes_string(traces))[0], petri_net_from_paper, initial_marking,
                    final_marking,
                    log_move_probabilities,
                    model_move_probabilities)
-print_most_probable_alignment(alignment2)
+print_alignment(alignment2)

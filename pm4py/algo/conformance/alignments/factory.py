@@ -17,11 +17,14 @@ VERSIONS = {VERSION_STATE_EQUATION_A_STAR: versions.state_equation_a_star.apply}
 VERSIONS_COST = {VERSION_STATE_EQUATION_A_STAR: versions.state_equation_a_star.get_best_worst_cost}
 
 
-def apply(object, petri_net, initial_marking, final_marking, parameters=None, version=VERSION_STATE_EQUATION_A_STAR):
+def apply(object, petri_net, initial_marking, final_marking, parameters=None, version=VERSION_STATE_EQUATION_A_STAR,
+          find_all_opt_alignments=False):
     if isinstance(object, pm4py.objects.log.log.Trace):
-        return apply_trace(object, petri_net, initial_marking, final_marking, parameters, version)
+        return apply_trace(object, petri_net, initial_marking, final_marking, find_all_opt_alignments, parameters,
+                           version)
     elif isinstance(object, pm4py.objects.log.log.TraceLog):
-        return apply_log(object, petri_net, initial_marking, final_marking, parameters, version)
+        return apply_log(object, petri_net, initial_marking, final_marking, find_all_opt_alignments, parameters,
+                         version)
     elif isinstance(object, pm4py.objects.log.log.EventLog):
         if log_util.PARAMETER_KEY_CASE_GLUE in parameters:
             glue = parameters[log_util.PARAMETER_KEY_CASE_GLUE]
@@ -34,10 +37,11 @@ def apply(object, petri_net, initial_marking, final_marking, parameters=None, ve
         trace_log = log_transform.transform_event_log_to_trace_log(object, case_glue=glue,
                                                                    includes_case_attributes=False,
                                                                    case_attribute_prefix=case_pref)
-        return apply_log(object, petri_net, initial_marking, final_marking, parameters, version)
+        return apply_log(object, petri_net, initial_marking, final_marking, find_all_opt_alignments, parameters,
+                         version)
 
 
-def apply_trace(trace, petri_net, initial_marking, final_marking, parameters=None,
+def apply_trace(trace, petri_net, initial_marking, final_marking, find_all_opt_alignments, parameters=None,
                 version=VERSION_STATE_EQUATION_A_STAR):
     '''
     apply alignments to a trace
@@ -67,10 +71,11 @@ def apply_trace(trace, petri_net, initial_marking, final_marking, parameters=Non
     if PARAM_TRACE_COST_FUNCTION not in parameters:
         parameters[PARAM_TRACE_COST_FUNCTION] = list(
             map(lambda e: STD_MODEL_LOG_MOVE_COST, trace))
-    return VERSIONS[version](trace, petri_net, initial_marking, final_marking, parameters)
+    return VERSIONS[version](trace, petri_net, initial_marking, final_marking, find_all_opt_alignments, parameters)
 
 
-def apply_log(log, petri_net, initial_marking, final_marking, parameters=None, version=VERSION_STATE_EQUATION_A_STAR):
+def apply_log(log, petri_net, initial_marking, final_marking, find_all_opt_alignments, parameters=None,
+              version=VERSION_STATE_EQUATION_A_STAR):
     '''
     apply alignments to a trace
 
@@ -121,9 +126,8 @@ def apply_log(log, petri_net, initial_marking, final_marking, parameters=None, v
     parameters[
         PARAM_SYNC_COST_FUNCTION] = sync_cost_function
     alignments = list(map(
-        lambda trace: apply_trace(trace, petri_net, initial_marking, final_marking, parameters=copy(parameters),
-                                  version=version),
-        log))
+        lambda trace: (apply_trace(trace, petri_net, initial_marking, final_marking, find_all_opt_alignments,
+                                   parameters=copy(parameters), version=version)), log))
 
     # assign fitness to traces
     for index, align in enumerate(alignments):
@@ -131,5 +135,4 @@ def apply_log(log, petri_net, initial_marking, final_marking, parameters=None, v
         # align['fitness'] = 1 - ((align['cost']  // ali.utils.STD_MODEL_LOG_MOVE_COST) / best_worst_cost)
         align['fitness'] = 1 - (
                 (align['cost'] // ali.utils.STD_MODEL_LOG_MOVE_COST) / (len(log[index]) + best_worst_cost))
-
     return alignments
