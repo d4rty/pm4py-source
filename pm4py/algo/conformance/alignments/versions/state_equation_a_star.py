@@ -183,7 +183,7 @@ def __search(sync_net, ini, fin, cost_function, skip):
             g = curr.g + cost_function[t]
 
             # enum is a tuple (int, SearchTuple), alt is a SearchTuple
-            # TODO ask why so "complicated"?
+            # TODO why so "complicated"?
             alt = next((enum[1] for enum in enumerate(open_set) if enum[1].m == new_marking), None)
             if alt is not None:
                 if g >= alt.g:
@@ -198,24 +198,6 @@ def __search(sync_net, ini, fin, cost_function, skip):
 
 
 def __search_for_all_optimal_paths(sync_net, ini, fin, cost_function, skip):
-    # TODO only for debugging - switch off heuristic ###################################################################
-    def __trust_solution(x):
-        return True
-
-    def __compute_exact_heuristic(sync_net, incidence_matrix, curr, cost_vec, fin_vec):
-        return 0, 0
-
-    def __derive_heuristic(incidence_matrix, cost_vec, x, t, h):
-        return 0, 0
-
-    # TODO end #########################################################################################################
-
-    def get_search_tuple(marking, set_of_search_tuples):
-        for st in set_of_search_tuples:
-            if st.m == marking:
-                return st
-        return None
-
     incidence_matrix = petri.incidence_matrix.construct(sync_net)
     ini_vec, fin_vec, cost_vec = __vectorize_initial_final_cost(incidence_matrix, ini, fin, cost_function)
 
@@ -224,7 +206,7 @@ def __search_for_all_optimal_paths(sync_net, ini, fin, cost_function, skip):
 
     visited_nodes = []
     h, x = __compute_exact_heuristic(sync_net, incidence_matrix, ini, cost_vec, fin_vec)
-    ini_state = SearchTuple(0 + h, 0, h, ini, [], [], x, True)
+    ini_state = SearchTupleAllOptimalAlignments(0 + h, 0, h, ini, [], [], x, True)
     open_set = [ini_state]  # visited markings
     visited = 0
     queued = 0
@@ -233,8 +215,11 @@ def __search_for_all_optimal_paths(sync_net, ini, fin, cost_function, skip):
         curr = heapq.heappop(open_set)
         if not curr.trust:
             h, x = __compute_exact_heuristic(sync_net, incidence_matrix, curr.m, cost_vec, fin_vec)
-            tp = SearchTuple(curr.g + h, curr.g, h, curr.m, curr.p, curr.t, x, __trust_solution(x))
-            heapq.heappush(open_set, tp)
+            curr.f = curr.g + h
+            curr.h = h
+            curr.x = x
+            curr.trust = __trust_solution(x)
+            heapq.heappush(open_set, curr)
             heapq.heapify(open_set)  # transform a populated list into a heap
             continue
 
@@ -255,31 +240,31 @@ def __search_for_all_optimal_paths(sync_net, ini, fin, cost_function, skip):
                 #   continue
                 traversed += 1
 
+                st = None
                 new_marking = petri.semantics.execute(t, sync_net, current_marking)
+                for node in visited_nodes:
+                    if node.m == new_marking:
+                        st = node
 
-                st = get_search_tuple(new_marking, visited_nodes)
+                # st = get_search_tuple(new_marking, visited_nodes)
                 if st and st.m == new_marking:
                     if st.g > curr.g + cost_function[t]:
                         # calculate heuristic
                         h, x = __derive_heuristic(incidence_matrix, cost_vec, curr.x, t, curr.h)
-
-                        # visited_nodes.remove(st)
-                        # del st
-                        # st = SearchTuple(g + h, g, h, new_marking, [curr], [t], x, __trust_solution(x))
-                        st.f = g + h
-                        st.g = g
+                        # update the searchTuple
+                        st.f = curr.g + cost_function[t] + h
+                        st.g = curr.g + cost_function[t]
                         st.h = h
                         st.m = new_marking
                         st.p = [curr]
                         st.t = [t]
                         st.x = x
                         st.trust = __trust_solution(x)
-                        # visited_nodes.append(st)
+                        # since cost has changed we need to reconstruct the heap
+                        heapq.heapify(open_set)
                     elif st and st.g == curr.g + cost_function[t]:
-                        # visited_nodes.remove(st)
                         st.p.append(curr)
                         st.t.append(t)
-                        # visited_nodes.append(st)
                 else:
                     g = curr.g + cost_function[t]
                     # enum is a tuple (int, SearchTuple), alt is a SearchTuple
@@ -287,20 +272,23 @@ def __search_for_all_optimal_paths(sync_net, ini, fin, cost_function, skip):
                     alt = next((enum[1] for enum in enumerate(open_set) if enum[1].m == new_marking), None)
                     if alt is not None:
                         if g >= alt.g:
+                            print("!!!!!!!!!!!!!!!!!!")
                             continue
+                            print("!!!!!!!!!!!!!!!!!!")
                         open_set.remove(alt)
                         heapq.heapify(open_set)
                     queued += 1
                     h, x = __derive_heuristic(incidence_matrix, cost_vec, curr.x, t, curr.h)
-                    tp = SearchTuple(g + h, g, h, new_marking, [curr], [t], x, __trust_solution(x))
+                    tp = SearchTupleAllOptimalAlignments(g + h, g, h, new_marking, [curr], [t], x, __trust_solution(x))
                     visited_nodes.append(tp)
                     heapq.heappush(open_set, tp)
                     heapq.heapify(open_set)
         else:
-            continue
+            # break because all remaining nodes are worse than already known solutions
+            break
     if solution_found:
         for state in visited_nodes:
-            # there is only one final state
+            # there is only one final state in workflow nets
             if state.m == fin:
                 return __reconstruct_all_optimal_alignments(state, visited, queued, traversed)
 
@@ -323,7 +311,7 @@ def __reconstruct_alignment(state, visited, queued, traversed):
 
 
 def __reconstruct_all_optimal_alignments(state, visited, queued, traversed):
-    # state is a SearchTuple
+    # state is a SearchTupleAllOptimalAlignments
     res_alignments = []
     # TODO if an alignment consists of only one step this doesn't currently work
     for index, predecessor in enumerate(state.p):
@@ -423,6 +411,7 @@ def __vectorize_initial_final_cost(incidence_matrix, ini, fin, cost_function):
     return ini_vec, fini_vec, cost_vec
 
 
+# TODO own DataClass for all opt Alignments
 @dataclass
 class SearchTuple:
     f: float
@@ -440,13 +429,7 @@ class SearchTuple:
         elif other.f < self.f:
             return False
         else:
-            if self.trust == other.trust:
-                if self.h < other.h:
-                    return True
-                else:
-                    return False
-            else:
-                return self.trust
+            return self.h < other.h
 
     def __get_firing_sequence(self):
         ret = []
@@ -457,8 +440,29 @@ class SearchTuple:
         return ret
 
     def __repr__(self):
-        # TODO wieder entfernen
-        return id(self).__str__() + " " + self.m.__str__()
         string_build = ["\nm=" + str(self.m), " f=" + str(self.f), ' g=' + str(self.g), " h=" + str(self.h),
                         " path=" + str(self.__get_firing_sequence()) + "\n\n"]
         return " ".join(string_build)
+
+
+@dataclass
+class SearchTupleAllOptimalAlignments:
+    f: float
+    g: float
+    h: float
+    m: petri.petrinet.Marking
+    p: list  # list of predecessor nodes (list of SearchTupleAllOptimalAlignments objects)
+    t: list  # transitions from predecessor nodes to this node, e.g., t[i] is the transition from p[i].m to m
+    x: Any  # belongs to heuristic value
+    trust: bool
+
+    def __lt__(self, other):
+        if self.f < other.f:
+            return True
+        elif other.f < self.f:
+            return False
+        else:
+            return self.h < other.h
+
+    def __repr__(self):
+        return self.m.__str__() + " | unique obj. id:" + str(id(self))

@@ -73,6 +73,10 @@ def print_alignments(alignments):
     if 'probability' in alignments:
         print("\nprobability: ", alignments['probability'], ' ~%.2f' % (alignments['probability'] * 100), '%')
 
+    # only opt. alignments contain cost
+    if 'cost' in alignments:
+        print("\ncosts: %d" % alignments['cost'])
+
     print()
     total_number_alignments = len(alignments["alignments"])
     for i, alignment in enumerate(alignments["alignments"]):

@@ -70,7 +70,6 @@ def execute_script():
     for move in alignment['alignment']:
         print("Label:   " + str(move['label']))
         print("Name:    " + str(move['name']))
-        print("Marking: " + str(move['marking']))
         print()
 
 

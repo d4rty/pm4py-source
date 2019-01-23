@@ -52,8 +52,8 @@ final_marking[places['p_4']] = 1
 parameters = {"format": "svg"}
 # parameters['debug'] = True
 # parameters = None
-# gviz = petri_net_visualization_factory.apply(petri_net, initial_marking, final_marking, parameters=parameters)
-# petri_net_visualization_factory.view(gviz)
+gviz = petri_net_visualization_factory.apply(petri_net_from_paper, initial_marking, final_marking, parameters=parameters)
+petri_net_visualization_factory.view(gviz)
 
 # end create petri net #################################################################################################
 
@@ -82,9 +82,14 @@ log_move_prior = {'A': 1, 'B': 1, 'C': 1, 'D': 1, '*': 1}
 log_move_probabilities = calculate_log_move_probability(event_log, log_move_prior)
 model_move_probabilities = calculate_model_move_probabilities_without_prior(event_log, petri_net_from_paper,
                                                                             initial_marking, final_marking)
-
+print("\nLog move probabilities")
+print("----------------------")
 print(log_move_probabilities)
-print(model_move_probabilities)
+print("\n\nModel move probabilities")
+print("------------------------")
+for marking in model_move_probabilities:
+    print(marking)
+print("\n\n")
 
 traces = [
     {"frequency": 1, "events": ["A", "B", "C"]},

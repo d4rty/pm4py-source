@@ -75,49 +75,55 @@ def calculate_model_move_probabilities_without_prior(event_log, petri_net, initi
     #   cost 1000   log/model moves
     #   cost 1      tau moves
     #   cost 0      synchronous moves
-    alignments = alignments_module.factory.apply(event_log, petri_net, initial_marking, final_marking, parameters=None)
+    alignments_for_traces = alignments_module.factory.apply(event_log, petri_net, initial_marking, final_marking,
+                                                            parameters=None,
+                                                            find_all_opt_alignments=True)
 
-    log_move_probabilities_given_marking = []
+    model_move_probabilities_given_marking = []
 
-    for alignment in alignments:
-        for move in alignment['alignment']:
-            # only consider synchronous and model moves
-            if (move['label'][0] == SKIP and move['label'][1] != SKIP) or (move['label'][0] == move['label'][1]):
-                current_marking = {}
-                for place in move['marking_before_transition']:
-                    # example place name of the log net ('p_2','>>')
-                    # example place name of the process net ('>>','p_2')
-                    if place.name[0] == SKIP and place.name[1] != SKIP:
-                        # only consider process net places
-                        number_tokens = move['marking_before_transition'][place]
-                        current_marking[place.name[1]] = number_tokens
+    for trace in alignments_for_traces:
+        number_optimal_alignments = len(trace['alignments'])
+        for alignment in trace['alignments']:
+            for move in alignment:
+                # only consider synchronous and model moves
+                if (move['label'][0] == SKIP and move['label'][1] != SKIP) or (move['label'][0] == move['label'][1]):
+                    current_marking = {}
+                    for place in move['marking_before_transition']:
+                        # example place name of the log net ('p_2','>>')
+                        # example place name of the process net ('>>','p_2')
+                        if place.name[0] == SKIP and place.name[1] != SKIP:
+                            # only consider process net places
+                            number_tokens = move['marking_before_transition'][place]
+                            current_marking[place.name[1]] = number_tokens
 
-                founded_dict = next(
-                    (x for x in log_move_probabilities_given_marking if x['marking'] == current_marking), None)
+                    founded_dict = next(
+                        (x for x in model_move_probabilities_given_marking if x['marking'] == current_marking), None)
 
-                if founded_dict:
-                    founded_transition = next(
-                        (x for x in founded_dict['outgoing_transitions'] if
-                         str(x['unique_name']) == str(move['name'][1])),
-                        None)
-
-                    if founded_transition:
-                        founded_transition["frequency"] += 1
+                    if founded_dict:
+                        founded_transition = next(
+                            (x for x in founded_dict['outgoing_transitions'] if
+                             str(x['unique_name']) == str(move['name'][1])), None)
+                        if founded_transition:
+                            # increase number of already known transition given the marking
+                            founded_transition["frequency"] += 1 / number_optimal_alignments
+                        else:
+                            # add new transition to already known marking
+                            new_transition = {"unique_name": str(move['name'][1]),
+                                              "frequency": 1 / number_optimal_alignments}
+                            founded_dict["outgoing_transitions"].append(new_transition)
                     else:
-                        new_transition = {"unique_name": str(move['name'][1]), "frequency": 1}
-                        founded_dict["outgoing_transitions"].append(new_transition)
-                else:
-                    new_marking = {
-                        "marking": current_marking,
-                        "outgoing_transitions": [
-                            {"unique_name": str(move['name'][1]), "frequency": 1, "model_move_probability": None}]
-                    }
-                    log_move_probabilities_given_marking.append(new_marking)
+                        new_marking = {
+                            "marking": current_marking,
+                            "outgoing_transitions": [
+                                {"unique_name": str(move['name'][1]), "frequency": 1 / number_optimal_alignments,
+                                 "model_move_probability": None}]
+                        }
+                        model_move_probabilities_given_marking.append(new_marking)
 
-    for marking in log_move_probabilities_given_marking:
+    for marking in model_move_probabilities_given_marking:
         total_number_fired_transitions_from_marking = 0
         for transition in marking['outgoing_transitions']:
             total_number_fired_transitions_from_marking += transition["frequency"]
         for transition in marking['outgoing_transitions']:
             transition["model_move_probability"] = transition["frequency"] / total_number_fired_transitions_from_marking
-    return log_move_probabilities_given_marking
+    return model_move_probabilities_given_marking

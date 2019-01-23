@@ -1,6 +1,5 @@
 import math
 import heapq
-import logging
 from typing import Any
 
 from dataclasses import dataclass
@@ -16,7 +15,6 @@ from pm4py.visualization.petrinet import factory as pn_vis_factory
 
 def apply(trace, petri_net, initial_marking, final_marking, log_move_probabilities, model_move_probabilities,
           parameters=None):
-    print("apply")
     print(trace)
     activity_key = DEFAULT_NAME_KEY if parameters is None or PARAMETER_CONSTANT_ACTIVITY_KEY not in parameters else \
         parameters[pm4pyutil.constants.PARAMETER_CONSTANT_ACTIVITY_KEY]
