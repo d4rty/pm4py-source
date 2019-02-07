@@ -1,5 +1,6 @@
 import sys
 from collections import Counter
+from copy import copy
 
 from pm4py import util as pmutil
 from pm4py.algo.conformance.tokenreplay import factory as token_replay
@@ -9,10 +10,10 @@ from pm4py.algo.discovery.inductive.util.petri_el_count import Counts
 from pm4py.algo.discovery.inductive.versions.dfg.data_structures.subtree import Subtree
 from pm4py.algo.discovery.inductive.versions.dfg.util import get_tree_repr
 from pm4py.algo.filtering.tracelog.attributes import attributes_filter
-from pm4py.objects.conversion.tree_to_petri import factory as tree_to_petri
+from pm4py.objects.conversion.process_tree import factory as tree_to_petri
 from pm4py.objects.log.util import xes as xes_util
 
-sys.setrecursionlimit(100000)
+sys.setrecursionlimit(shared_constants.REC_LIMIT)
 
 
 def apply(trace_log, parameters):
@@ -43,8 +44,7 @@ def apply(trace_log, parameters):
         parameters[pmutil.constants.PARAMETER_CONSTANT_ACTIVITY_KEY] = xes_util.DEFAULT_NAME_KEY
     activity_key = parameters[pmutil.constants.PARAMETER_CONSTANT_ACTIVITY_KEY]
     # apply the reduction by default only on very small logs
-    enable_reduction = parameters["enable_reduction"] if "enable_reduction" in parameters else (
-            shared_constants.APPLY_REDUCTION_ON_SMALL_LOG and shared_constants.MAX_LOG_SIZE_FOR_REDUCTION)
+    enable_reduction = parameters["enable_reduction"] if "enable_reduction" in parameters else True
 
     # get the DFG
     dfg = [(k, v) for k, v in dfg_inst.apply(trace_log, parameters={
@@ -63,8 +63,15 @@ def apply(trace_log, parameters):
                                                     contains_empty_traces=contains_empty_traces)
 
     if enable_reduction:
+        reduction_parameters = copy(parameters)
+        if "is_reduction" not in reduction_parameters:
+            reduction_parameters["is_reduction"] = True
+        if "thread_maximum_ex_time" not in reduction_parameters:
+            reduction_parameters["thread_maximum_ex_time"] = shared_constants.RED_MAX_THR_EX_TIME
+
         # do the replay
-        aligned_traces = token_replay.apply(trace_log, net, initial_marking, final_marking, parameters=parameters)
+        aligned_traces = token_replay.apply(trace_log, net, initial_marking, final_marking,
+                                            parameters=reduction_parameters)
 
         # apply petri_reduction technique in order to simplify the Petri net
         net = petri_cleaning.petri_reduction_treplay(net, parameters={"aligned_traces": aligned_traces})
@@ -169,7 +176,7 @@ def apply_tree_dfg(dfg, parameters, activities=None, contains_empty_traces=False
     if parameters is None:
         parameters = {}
 
-    noise_threshold = 0.0
+    noise_threshold = shared_constants.NOISE_THRESHOLD
 
     if "noiseThreshold" in parameters:
         noise_threshold = parameters["noiseThreshold"]
@@ -184,6 +191,6 @@ def apply_tree_dfg(dfg, parameters, activities=None, contains_empty_traces=False
     c = Counts()
     s = Subtree(dfg, dfg, activities, c, 0, noise_threshold=noise_threshold)
 
-    tree_repr, c = get_tree_repr.get_repr(s, 0, c, contains_empty_traces=contains_empty_traces)
+    tree_repr = get_tree_repr.get_repr(s, 0, contains_empty_traces=contains_empty_traces)
 
     return tree_repr

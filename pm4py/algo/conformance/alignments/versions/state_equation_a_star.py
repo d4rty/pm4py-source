@@ -183,7 +183,6 @@ def __search(sync_net, ini, fin, cost_function, skip):
             g = curr.g + cost_function[t]
 
             # enum is a tuple (int, SearchTuple), alt is a SearchTuple
-            # TODO why so "complicated"?
             alt = next((enum[1] for enum in enumerate(open_set) if enum[1].m == new_marking), None)
             if alt is not None:
                 if g >= alt.g:
@@ -411,17 +410,16 @@ def __vectorize_initial_final_cost(incidence_matrix, ini, fin, cost_function):
     return ini_vec, fini_vec, cost_vec
 
 
-# TODO own DataClass for all opt Alignments
-@dataclass
 class SearchTuple:
-    f: float
-    g: float
-    h: float
-    m: petri.petrinet.Marking
-    p: Any  # predecessor node
-    t: petri.petrinet.PetriNet.Transition  # transition from predecessor node to this node
-    x: Any  # belongs to heuristic value
-    trust: bool
+    def __init__(self, f, g, h, m, p, t, x, trust):
+        self.f = f
+        self.g = g
+        self.h = h
+        self.m = m
+        self.p = p
+        self.t = t
+        self.x = x
+        self.trust = trust
 
     def __lt__(self, other):
         if self.f < other.f:
@@ -445,16 +443,16 @@ class SearchTuple:
         return " ".join(string_build)
 
 
-@dataclass
 class SearchTupleAllOptimalAlignments:
-    f: float
-    g: float
-    h: float
-    m: petri.petrinet.Marking
-    p: list  # list of predecessor nodes (list of SearchTupleAllOptimalAlignments objects)
-    t: list  # transitions from predecessor nodes to this node, e.g., t[i] is the transition from p[i].m to m
-    x: Any  # belongs to heuristic value
-    trust: bool
+    def __init__(self, f, g, h, m, p, t, x, trust):
+        self.f = f
+        self.g = g
+        self.h = h
+        self.m = m
+        self.p = p  # list of predecessor nodes (list of SearchTupleAllOptimalAlignments objects)
+        self.t = t  # transitions from predecessor nodes to this node, e.g., t[i] is the transition from p[i].m to m
+        self.x = x  # belongs to heuristic value
+        self.trust = trust
 
     def __lt__(self, other):
         if self.f < other.f:

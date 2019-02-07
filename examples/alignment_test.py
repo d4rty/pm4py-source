@@ -8,8 +8,7 @@ from pm4py.algo.conformance.alignments.versions.state_equation_a_star import PAR
 from pm4py.objects import log as log_lib
 from pm4py.objects import petri as petri
 from pm4py.objects.log.importer.xes import factory as xes_importer
-from pm4py.visualization.petrinet import factory
-from pm4py.objects.petri import semantics
+from pm4py.objects.conversion.log import factory as log_conv
 
 
 def align(trace, net, im, fm, model_cost_function, sync_cost_function):
@@ -31,24 +30,9 @@ def execute_script():
     # pnml_path = 'C:/Users/bas/Documents/tue/svn/private/logs/a32_logs/a32.pnml'
 
     log = xes_importer.import_log(log_path)
-
-    # for event in log:
-    #    print(type(event))
-    #    print(event)
-
+    log = log_conv.apply(log, parameters=None, version=log_conv.TO_EVENT_LOG)
     net, marking, fmarking = petri.importer.pnml.import_net(
         pnml_path)
-
-    # shows the enabled transitions for a particular marking
-    transitions = semantics.enabled_transitions(net, marking)
-
-    # shows the unique label of the places
-    # print(net.places)
-    # for place in net.places:
-    #     print(place.name)
-    # print(net.transitions)
-    # for transition in net.transitions:
-    #     print("\nTRANS: ", transition.name, transition.label)
 
     model_cost_function = dict()
     sync_cost_function = dict()
@@ -59,18 +43,7 @@ def execute_script():
         else:
             model_cost_function[t] = 1
 
-    # visualization of petri net
-    # factory.view(factory.apply(net))
-    # factory.view(factory.apply(net, marking, fmarking))
-
-    # print(list(map(lambda trace: align(trace, net, marking, fmarking, model_cost_function, sync_cost_function), log)))
-
-    alignment = ali.factory.apply(log[0], net, marking, fmarking)
-
-    for move in alignment['alignment']:
-        print("Label:   " + str(move['label']))
-        print("Name:    " + str(move['name']))
-        print()
+    print(ali.factory.apply(log, net, marking, fmarking))
 
 
 if __name__ == '__main__':

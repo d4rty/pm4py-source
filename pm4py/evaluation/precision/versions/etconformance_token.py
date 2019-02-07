@@ -43,7 +43,7 @@ def get_log_prefixes(log, activity_key=xes_util.DEFAULT_NAME_KEY):
     prefixes = {}
     prefix_count = Counter()
     for trace in log:
-        for i in range(1, len(trace) - 1):
+        for i in range(1, len(trace)):
             red_trace = trace[0:i]
             prefix = ",".join([x[activity_key] for x in red_trace])
             next_activity = trace[i][activity_key]
@@ -122,7 +122,7 @@ def apply(log, net, marking, final_marking, parameters=None):
         if aligned_traces[i]["trace_is_fit"]:
             log_transitions = set(prefixes[prefixes_keys[i]])
             activated_transitions_labels = set(
-                [x.label for x in aligned_traces[i]["activated_transitions"] if x.label is not None])
+                [x.label for x in aligned_traces[i]["enabled_transitions_in_marking"] if x.label is not None])
             sum_at += len(activated_transitions_labels) * prefix_count[prefixes_keys[i]]
             escaping_edges = activated_transitions_labels.difference(log_transitions)
             sum_ee += len(escaping_edges) * prefix_count[prefixes_keys[i]]

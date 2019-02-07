@@ -198,7 +198,7 @@ def __get_model_move_probability(transition, marking_sync_product_net, model_mov
     :param process_net:
     :return:
     """
-    constant_prior = 1
+    constant_prior = 0
     wanted_transition = transition.name[1]
 
     marking_process_net = Marking()
