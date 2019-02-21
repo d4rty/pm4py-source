@@ -180,7 +180,7 @@ def __get_move_probability(transition, marking, log_move_probabilities, model_mo
         return cost
 
 
-def __sync_process_net_place_is_model_place(p):
+def __sync_product_net_place_belongs_to_process_net(p):
     """
     :param p: Place object; represents a place of a synchronous product net
     :return: Boolean - true if the synchronous product net state represents a state of the process net
@@ -205,7 +205,7 @@ def __get_model_move_probability(transition, marking_sync_product_net, model_mov
     marking_process_net_dict = {}  # dict of marking - key: place name, value: number tokens
 
     for place in marking_sync_product_net:
-        if __sync_process_net_place_is_model_place(place):
+        if __sync_product_net_place_belongs_to_process_net(place):
             number_tokens = marking_sync_product_net[place]
             process_net_place_name = place.name[1]
             # create marking object of process net
