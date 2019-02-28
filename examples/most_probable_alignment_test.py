@@ -3,13 +3,12 @@ import os
 from pm4py.objects.log.importer.xes.factory import import_log_from_string
 from pm4py.util.create_artificial_event_log import create_artificial_event_log_as_xes_file, create_xes_string
 from pm4py.objects.log.importer.xes import factory as xes_importer
-from pm4py.algo.conformance.alignments.most_probable_alignments.utils import *
+from pm4py.algo.conformance.alignments.most_probable_alignments.probability_computation_utils import *
 from pm4py.objects.petri.petrinet import PetriNet
 from pm4py.objects.petri import utils as petri_net_utils
 from pm4py.visualization.petrinet import factory as petri_net_visualization_factory
 from pm4py.objects.petri.petrinet import Marking
 from pm4py.algo.conformance.alignments.most_probable_alignments.a_star import apply as calculate_most_prob_align
-from pm4py.algo.conformance.alignments import factory
 from pm4py.algo.conformance.alignments.utils import print_alignment
 
 # create petri net #####################################################################################################
