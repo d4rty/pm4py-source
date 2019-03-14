@@ -107,13 +107,17 @@ def __compute_heuristic(sync_net, current_marking, log_move_probabilities, model
         objective.SetCoefficient(variables[x], costs[x])
     objective.SetMinimization()
     solver.Solve()
+
     print('Number of variables =', solver.NumVariables())
     print('Number of constraints =', solver.NumConstraints())
-
     print('Solution:')
     for v in variables:
         print(str(v.name) + ":" + str(variables[v].solution_value()))
-    return
+
+    lp_solution = 0
+    for v in variables:
+        lp_solution += variables[v].solution_value() * costs[v]
+    return lp_solution
 
 
 def get_move_cost_for_heuristic(t, log_move_probabilities, model_move_probabilities):
@@ -238,5 +242,5 @@ if __name__ == '__main__':
                                                                                               initial_marking,
                                                                                               final_marking)
 
-    __compute_heuristic(sync_prod_net, sync_initial_marking, log_move_prob,
-                        model_move_probabilities_without_prior, sync_final_marking)
+    print(__compute_heuristic(sync_prod_net, sync_initial_marking, log_move_prob,
+                        model_move_probabilities_without_prior, sync_final_marking))
