@@ -164,10 +164,6 @@ def get_model_move_probability_ignoring_marking(requested_transition, model_move
             model_move_probabilities_for_heuristic[t]["probability"] = model_move_probabilities_for_heuristic[t][
                                                                            "frequency"] / sum_transitions_frequencies
 
-    # TODO remove
-    debugging_model_move_probabilities_for_heuristic = model_move_probabilities_for_heuristic
-    # get the corresponding transition probability
-    keys = model_move_probabilities_for_heuristic.keys()
     if requested_transition.name[1] in model_move_probabilities_for_heuristic:
         return model_move_probabilities_for_heuristic[requested_transition.name[1]]["probability"]
     else:
