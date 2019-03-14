@@ -248,7 +248,7 @@ def get_model_move_probability(transition, marking_sync_product_net, model_move_
                 frequency_of_outgoing_arcs_for_marking += constant_prior
 
         model_move_probabilities_for_marking[0]['outgoing_transitions'].extend(new_transitions)
-        res = None
+        res = 0  # if wanted transition will not be found return probability 0
         # calculate possibilities for model move given the marking based on new (added prior) frequencies
         for t in model_move_probabilities_for_marking[0]['outgoing_transitions']:
             t['model_move_probability_with_applied_prior'] = t['frequency'] / frequency_of_outgoing_arcs_for_marking
@@ -314,11 +314,11 @@ def apply_log_transformation(probability):
 def get_move_cost(transition, marking, log_move_probabilities, model_move_probabilities, process_net):
     """
 
-    :param transition:
-    :param marking:
-    :param log_move_probabilities:
-    :param model_move_probabilities:
-    :param process_net:
+    :param transition: Transition object
+    :param marking: Marking object of the synchronous product net
+    :param log_move_probabilities: dict
+    :param model_move_probabilities: dict
+    :param process_net: PetriNet object
     :return:
     """
     if is_model_move(transition, SKIP):
