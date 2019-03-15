@@ -44,7 +44,9 @@ def __compute_heuristic(sync_net, current_marking, log_move_probabilities, model
     variables = {}
     constraints = []
     for t in sync_net.transitions:
-        variables[t] = solver.NumVar(0, solver.infinity(), str(t.name))
+        if costs[t] < math.inf:
+            # only create variables that have finite cost/ probability > 0
+            variables[t] = solver.NumVar(0, solver.infinity(), str(t.name))
     # calculate current number of tokens in the process net part of the synchronous product net
     number_tokens_in_process_net_part = 0
     for p in current_marking:
@@ -88,15 +90,19 @@ def __compute_heuristic(sync_net, current_marking, log_move_probabilities, model
             c = solver.Constraint(0 - current_marking[p], solver.infinity())
 
             for t in arcs_to_transitions:
-                constraint_one_token_in_process_net_part_coefficients[t] -= 1
+                if t in variables:
+                    constraint_one_token_in_process_net_part_coefficients[t] -= 1
 
             for t in arcs_from_transitions:
-                constraint_one_token_in_process_net_part_coefficients[t] += 1
+                if t in variables:
+                    constraint_one_token_in_process_net_part_coefficients[t] += 1
 
         for t in arcs_to_transitions:
-            c.SetCoefficient(variables[t], -1)
+            if t in variables:
+                c.SetCoefficient(variables[t], -1)
         for t in arcs_from_transitions:
-            c.SetCoefficient(variables[t], 1)
+            if t in variables:
+                c.SetCoefficient(variables[t], 1)
         constraints.append(c)
 
     # calculate the costs for each transition
@@ -107,7 +113,6 @@ def __compute_heuristic(sync_net, current_marking, log_move_probabilities, model
         constraint_one_token_in_process_net_part.SetCoefficient(variables[v],
                                                                 constraint_one_token_in_process_net_part_coefficients[
                                                                     v])
-
 
     objective = solver.Objective()
     for v in variables:
