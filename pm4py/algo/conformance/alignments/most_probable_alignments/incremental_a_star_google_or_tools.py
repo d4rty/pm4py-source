@@ -1,6 +1,6 @@
-from cvxopt import matrix, solvers
+import math
+
 from ortools.linear_solver import pywraplp
-import numpy as np
 
 from pm4py.algo.conformance.alignments.most_probable_alignments.probability_computation_utils import \
     calculate_model_move_probabilities_without_prior, calculate_log_move_probability, get_move_cost, \
@@ -36,16 +36,15 @@ def __compute_heuristic(sync_net, current_marking, log_move_probabilities, model
     -------
     :return: h: heuristic value, x: solution vector
     """
-
+    costs = {}
+    for t in sync_net.transitions:
+        c = get_move_cost_for_heuristic(t, log_move_probabilities, model_move_probabilities)
+        costs[t] = c
     solver = pywraplp.Solver('SolveSimpleSystem', pywraplp.Solver.GLOP_LINEAR_PROGRAMMING)
-
     variables = {}
     constraints = []
-
     for t in sync_net.transitions:
-        # print(t.name)
         variables[t] = solver.NumVar(0, solver.infinity(), str(t.name))
-
     # calculate current number of tokens in the process net part of the synchronous product net
     number_tokens_in_process_net_part = 0
     for p in current_marking:
@@ -57,6 +56,15 @@ def __compute_heuristic(sync_net, current_marking, log_move_probabilities, model
     # rewrite to -->  1 - constant <= var1 * coefficient1 + var2 * coefficient2 + ...
     lb = 1 - number_tokens_in_process_net_part
     constraint_one_token_in_process_net_part = solver.Constraint(lb, solver.infinity())
+    # store coefficients for each variable here because when calling constraint.SetCoefficient multiple times for the
+    # same variable it overwrites always the last value for the given variable, i.e. it is NOT possible to model the
+    # following constraint: x >= x1 + x2 -x1 with:
+    # c.SetCoefficient(x1 , 1)
+    # c.SetCoefficient(x2 , 1)
+    # c.SetCoefficient(x1 , -1) --> overwrites the previous coefficient of x1
+    constraint_one_token_in_process_net_part_coefficients = {}
+    for v in variables:
+        constraint_one_token_in_process_net_part_coefficients[v] = 0
 
     # define constraints
     for p in sync_net.places:
@@ -72,48 +80,46 @@ def __compute_heuristic(sync_net, current_marking, log_move_probabilities, model
         if p.name[1] == SKIP:
             # place belongs to the trace net part
             lb_and_ub = sync_net_final_marking[p] - current_marking[p]
-            # enforce that the constraint is equal to the value of lb_and_ub, i.e., constraint = lb_and_ub
             c = solver.Constraint(lb_and_ub, lb_and_ub)
         else:
             # place belongs to the process net part
             # enforce that the constraint is greater or equal 0, i.e.,
-            # constraint + constant >= 0 --> constraint >= 0 - constant
+            # constraint + constant >= 0  -->  constraint >= 0 - constant
             c = solver.Constraint(0 - current_marking[p], solver.infinity())
 
-            for x in arcs_to_transitions:
-                constraint_one_token_in_process_net_part.SetCoefficient(variables[x], -1)
-            for x in arcs_from_transitions:
-                constraint_one_token_in_process_net_part.SetCoefficient(variables[x], 1)
+            for t in arcs_to_transitions:
+                constraint_one_token_in_process_net_part_coefficients[t] -= 1
 
-        for x in arcs_to_transitions:
-            c.SetCoefficient(variables[x], -1)
-        for x in arcs_from_transitions:
-            c.SetCoefficient(variables[x], 1)
+            for t in arcs_from_transitions:
+                constraint_one_token_in_process_net_part_coefficients[t] += 1
+
+        for t in arcs_to_transitions:
+            c.SetCoefficient(variables[t], -1)
+        for t in arcs_from_transitions:
+            c.SetCoefficient(variables[t], 1)
         constraints.append(c)
 
     # calculate the costs for each transition
     # TODO how to deal with infinite cost?!
     #  -> only add variable if costs below infinity otherwise variable cannot be part of the solution
 
-    costs = {}
-    for t in sync_net.transitions:
-        c = get_move_cost_for_heuristic(t, log_move_probabilities, model_move_probabilities)
-        costs[t] = c
+    for v in variables:
+        constraint_one_token_in_process_net_part.SetCoefficient(variables[v],
+                                                                constraint_one_token_in_process_net_part_coefficients[
+                                                                    v])
+
 
     objective = solver.Objective()
-
-    #    objective_function = sum(costs[x] * variables[x] for x in variables)
-    for x in variables:
-        objective.SetCoefficient(variables[x], costs[x])
+    for v in variables:
+        objective.SetCoefficient(variables[v], costs[v])
     objective.SetMinimization()
     solver.Solve()
-
-    print('Number of variables =', solver.NumVariables())
-    print('Number of constraints =', solver.NumConstraints())
-    print('Solution:')
-    for v in variables:
-        print(str(v.name) + ":" + str(variables[v].solution_value()))
-
+    # debugging
+    # print('Number of variables =', solver.NumVariables())
+    # print('Number of constraints =', solver.NumConstraints())
+    # print('Solution:')
+    # for v in variables:
+    #     print(str(v.name) + ":" + str(variables[v].solution_value()))
     lp_solution = 0
     for v in variables:
         lp_solution += variables[v].solution_value() * costs[v]
@@ -237,6 +243,19 @@ if __name__ == '__main__':
     model_move_probabilities_without_prior = calculate_model_move_probabilities_without_prior(event_log, test_petri_net,
                                                                                               initial_marking,
                                                                                               final_marking)
+    results = []
+    for x in range(1):
+        log_move_prior = None
+        log_move_prob = calculate_log_move_probability(event_log, log_move_prior)
 
-    print(__compute_heuristic(sync_prod_net, sync_initial_marking, log_move_prob,
-                        model_move_probabilities_without_prior, sync_final_marking))
+        model_move_probabilities_without_prior = calculate_model_move_probabilities_without_prior(event_log,
+                                                                                                  test_petri_net,
+                                                                                                  initial_marking,
+                                                                                                  final_marking)
+        print(model_move_probabilities_without_prior)
+        print(log_move_prob)
+        results.append((__compute_heuristic(sync_prod_net, sync_initial_marking, log_move_prob,
+                                            model_move_probabilities_without_prior, sync_final_marking)))
+    print("\nSolutions:")
+    print("Number of solutions: %i" % (len(results)))
+    print(list(set(results)))
