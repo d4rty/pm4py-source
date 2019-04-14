@@ -1,4 +1,10 @@
+import copy
+
+from pm4py.algo.conformance.alignments.most_probable_alignments.miscellaneous_utils import \
+    place_from_synchronous_product_net_belongs_to_trace_net_part, \
+    transition_from_synchronous_product_net_belongs_to_process_net_part
 from pm4py.objects import petri
+from pm4py.objects.log.util import xes as xes_util
 
 
 def construct(pn1, im1, fm1, pn2, im2, fm2, skip):
@@ -48,6 +54,46 @@ def construct(pn1, im1, fm1, pn2, im2, fm2, skip):
         sync_fm[p2_map[p]] = fm2[p]
 
     return sync_net, sync_im, sync_fm
+
+
+def extend_trace_net_of_synchronous_product_net(sync_net, event, sync_fm, skip, activity_key=xes_util.DEFAULT_NAME_KEY):
+    print("extend trace net part")
+    last_place_from_trace_net_part = None
+    for p in sync_fm:
+        if place_from_synchronous_product_net_belongs_to_trace_net_part(p):
+            last_place_from_trace_net_part = p
+            break
+    new_transition_index = str(last_place_from_trace_net_part.name[0][2:])
+
+    # add new transition
+    t = petri.petrinet.PetriNet.Transition(('t' + new_transition_index, skip), (event[activity_key], skip))
+    sync_net.transitions.add(t)
+    petri.utils.add_arc_from_to(last_place_from_trace_net_part, t, sync_net)
+
+    # add new place
+    p = petri.petrinet.PetriNet.Place(('p_' + str(int(new_transition_index) + 1), skip))
+    sync_net.places.add(p)
+    petri.utils.add_arc_from_to(t, p, sync_net)
+
+    # update marking
+    del sync_fm[last_place_from_trace_net_part]
+    sync_fm[p] = 1
+
+    # add new possible synchronous transitions
+    for t2 in sync_net.transitions.copy():
+        if transition_from_synchronous_product_net_belongs_to_process_net_part(t2) and \
+                t.label[0] == t2.label[1]:
+            sync = petri.petrinet.PetriNet.Transition((t.name[0], t2.name[1]), (t.label[0], t2.label[1]))
+            sync_net.transitions.add(sync)
+            for a in t.in_arcs:
+                petri.utils.add_arc_from_to(a.source, sync, sync_net)
+            for a in t2.in_arcs:
+                petri.utils.add_arc_from_to(a.source, sync, sync_net)
+            for a in t.out_arcs:
+                petri.utils.add_arc_from_to(sync, a.target, sync_net)
+            for a in t2.out_arcs:
+                petri.utils.add_arc_from_to(sync, a.target, sync_net)
+    return sync_net, sync_fm
 
 
 def construct_cost_aware(pn1, im1, fm1, pn2, im2, fm2, skip, pn1_costs, pn2_costs, sync_costs):

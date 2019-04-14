@@ -46,3 +46,11 @@ def place_from_synchronous_product_net_belongs_to_trace_net_part(place):
 
 def place_from_synchronous_product_net_belongs_to_process_net_part(place):
     return place.name[0] == SKIP
+
+
+def transition_from_synchronous_product_net_belongs_to_trace_net_part(transition):
+    return transition.name[1] == SKIP
+
+
+def transition_from_synchronous_product_net_belongs_to_process_net_part(transition):
+    return transition.name[0] == SKIP

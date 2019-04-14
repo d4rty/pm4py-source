@@ -38,26 +38,36 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None):
     # create empty closed and open set
     open_set = []
     closed_set = set()
-
+    first_event = True
     for event in trace:
         incremental_trace.append(event)
         print(incremental_trace)
+        if first_event:
+            print("first event")
+            # activity_key: :class:`str` key of the attribute of the events that defines the activity name
+            trace_net, trace_im, trace_fm = petri.utils.construct_trace_net(incremental_trace,
+                                                                            activity_key=activity_key)
+            sync_prod, sync_im, sync_fm = petri.synchronous_product.construct(trace_net,
+                                                                              trace_im,
+                                                                              trace_fm,
+                                                                              petri_net,
+                                                                              initial_marking,
+                                                                              final_marking,
+                                                                              alignments.utils.SKIP)
+            first_event = False
+        else:
+            print("not first event")
+            sync_prod, sync_fm = petri.synchronous_product.extend_trace_net_of_synchronous_product_net(sync_prod, event,
+                                                                                                       sync_fm, SKIP,
+                                                                                                       activity_key)
 
-        # activity_key: :class:`str` key of the attribute of the events that defines the activity name
-        trace_net, trace_im, trace_fm = petri.utils.construct_trace_net(incremental_trace,
-                                                                        activity_key=activity_key)
-        sync_prod, sync_initial_marking, sync_final_marking = petri.synchronous_product.construct(trace_net, trace_im,
-                                                                                                  trace_fm, petri_net,
-                                                                                                  initial_marking,
-                                                                                                  final_marking,
-                                                                                                  alignments.utils.SKIP)
-        gviz = pn_vis_factory.apply(sync_prod, sync_initial_marking, sync_final_marking,
+        gviz = pn_vis_factory.apply(sync_prod, sync_im, sync_fm,
                                     parameters={"debug": True, "format": "svg"})
         pn_vis_factory.view(gviz)
 
         cost_function = alignments.utils.construct_standard_cost_function(sync_prod, alignments.utils.SKIP)
 
-        prefix_alignment, open_set, closed_set = __search(sync_prod, sync_initial_marking, sync_final_marking,
+        prefix_alignment, open_set, closed_set = __search(sync_prod, sync_im, sync_fm,
                                                           cost_function,
                                                           alignments.utils.SKIP, open_set, closed_set)
         print(prefix_alignment)
@@ -74,6 +84,7 @@ def __search(sync_net, ini, fin, cost_function, skip, open_set_heap, closed_set)
     if len(open_set_heap) == 0:
         open_set_heap = [ini_state]
     else:
+        # TODO recalculate heurisitc!!
         heapq.heapify(open_set_heap)  # visited markings
     visited = 0
     queued = 0
@@ -302,10 +313,6 @@ def get_model_move_probability_ignoring_marking(requested_transition, model_move
         return 0
 
 
-def create_markings_for_new_sync_prod_net(old_markings,sync_prod_net):
-    for old_m in old_markings:
-        marking = Marking()
-
 class SearchTuple:
     def __init__(self, f, g, h, m, p, t, x, trust):
         self.f = f
@@ -387,13 +394,13 @@ if __name__ == '__main__':
                                                                                                   final_marking,
                                                                                                   SKIP)
 
-    # gviz = petri_net_visualization_factory.apply(sync_prod_net, sync_initial_marking, sync_final_marking,
-    #                                             parameters={"format": "svg", 'debug': True})
-    # petri_net_visualization_factory.view(gviz)
-    # incidence_matrix = petri.incidence_matrix.construct(sync_prod_net)
+    gviz = petri_net_visualization_factory.apply(test_petri_net, sync_initial_marking, sync_final_marking,
+                                                 parameters={"format": "svg", 'debug': True})
+    petri_net_visualization_factory.view(gviz)
+    incidence_matrix = petri.incidence_matrix.construct(sync_prod_net)
 
     traces = [
-        {"frequency": 40, "events": ["A", "B"]},
+        {"frequency": 40, "events": ["A","B","C"]},
         {"frequency": 10, "events": ["A", "C"]}
     ]
 
