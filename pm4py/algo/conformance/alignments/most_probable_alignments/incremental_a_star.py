@@ -1,4 +1,5 @@
 import heapq
+import os
 
 import math
 
@@ -25,6 +26,7 @@ from pm4py.algo.conformance.alignments.most_probable_alignments.miscellaneous_ut
     is_model_move, is_log_move, place_from_synchronous_product_net_belongs_to_process_net_part, \
     place_from_synchronous_product_net_belongs_to_trace_net_part
 from pm4py.visualization.petrinet import factory as pn_vis_factory
+from pm4py.objects.conversion.log import factory as log_conv
 
 model_move_probabilities_for_heuristic = None
 
@@ -53,7 +55,7 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None):
                                                                               petri_net,
                                                                               initial_marking,
                                                                               final_marking,
-                                                                              alignments.utils.SKIP)
+                                                                              SKIP)
             first_event = False
         else:
             print("not first event")
@@ -65,55 +67,59 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None):
                                     parameters={"debug": True, "format": "svg"})
         pn_vis_factory.view(gviz)
 
-        cost_function = alignments.utils.construct_standard_cost_function(sync_prod, alignments.utils.SKIP)
+        cost_function = alignments.utils.construct_standard_cost_function(sync_prod, SKIP)
 
         prefix_alignment, open_set, closed_set = __search(sync_prod, sync_im, sync_fm,
                                                           cost_function,
-                                                          alignments.utils.SKIP, open_set, closed_set)
+                                                          SKIP, open_set, closed_set)
         print(prefix_alignment)
         print_alignment(prefix_alignment)
+        print("cost: ", prefix_alignment["cost"])
         print(open_set)
         print(closed_set)
+        print("\n\n---------------------------------------------------\n\n")
 
 
-def __search(sync_net, ini, fin, cost_function, skip, open_set_heap, closed_set):
-    print("hello")
-    # TODO
-    h, x = 0, True
-    ini_state = SearchTuple(0 + h, 0, h, ini, None, None, x, True)
+def __search(sync_net, initial_m, final_m, cost_function, skip, open_set_heap, closed_set):
+    h, x = __compute_heuristic_regular_cost(sync_net, initial_m, final_m, cost_function)
+    ini_state = SearchTuple(0 + h, 0, h, initial_m, None, None, x, True)
     if len(open_set_heap) == 0:
         open_set_heap = [ini_state]
     else:
-        # TODO recalculate heurisitc!!
+        # recalculate heuristic for all markings in open set
+        for st in open_set_heap:
+            h, x = __compute_heuristic_regular_cost(sync_net, st.m, final_m, cost_function)
+            st.h = h
+            st.f = st.g + st.h
+            st.x = x
         heapq.heapify(open_set_heap)  # visited markings
     visited = 0
     queued = 0
     traversed = 0
     while not len(open_set_heap) == 0:
         curr = heapq.heappop(open_set_heap)
-        if not curr.trust:
-            h, x = 0, True
-            tp = SearchTuple(curr.g + h, curr.g, h, curr.m, curr.p, curr.t, x, True)
-            heapq.heappush(open_set_heap, tp)
-            heapq.heapify(open_set_heap)  # transform a populated list into a heap
-            continue
+        # if not curr.trust:
+        #     h, x = 0, True
+        #     tp = SearchTuple(curr.g + h, curr.g, h, curr.m, curr.p, curr.t, x, True)
+        #     heapq.heappush(open_set_heap, tp)
+        #     heapq.heapify(open_set_heap)  # transform a populated list into a heap
+        #     continue
 
         visited += 1
         current_marking = curr.m
-        closed_set.add(current_marking)
 
         # check if we reached the final marking
-
         for place in current_marking:
             if place_from_synchronous_product_net_belongs_to_trace_net_part(place):
-                for place2 in fin:
+                for place2 in final_m:
                     if place_from_synchronous_product_net_belongs_to_trace_net_part(place2):
                         if place.name == place2.name:
+                            # found a final marking of the trace net --> put marking back in open set
+                            heapq.heappush(open_set_heap, curr)
                             return __reconstruct_alignment(curr, visited, queued, traversed), open_set_heap, closed_set
 
-        print("enabled transitions:")
+        closed_set.add(current_marking)
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
-            print(t)
             if curr.t is not None and is_log_move(curr.t, skip) and is_model_move(t, skip):
                 continue
 
@@ -131,7 +137,7 @@ def __search(sync_net, ini, fin, cost_function, skip, open_set_heap, closed_set)
                 open_set_heap.remove(alt)
                 heapq.heapify(open_set_heap)
             queued += 1
-            h, x = 0, True
+            h, x = __compute_heuristic_regular_cost(sync_net, new_marking, final_m, cost_function)
             tp = SearchTuple(g + h, g, h, new_marking, curr, t, x, True)
             heapq.heappush(open_set_heap, tp)
             heapq.heapify(open_set_heap)
@@ -154,29 +160,8 @@ def __reconstruct_alignment(state, visited, queued, traversed):
             'traversed_arcs': traversed}
 
 
-def __compute_heuristic_most_probable_alignments(sync_net, current_marking, log_move_probabilities,
-                                                 model_move_probabilities,
-                                                 sync_net_final_marking):
-    """
-    Computes an exact heuristic using an LP based on the marking equation.
-
-    Parameters
-    ----------
-    :param sync_net: synchronous product net
-    :param incidence_matrix: incidence matrix
-    :param current_marking: marking to start from
-    :param model_move_probabilities: cost vector
-    :param sync_net_final_marking: marking to reach
-
-    Returns
-    -------
-    :return: h: heuristic value, x: solution vector
-    """
-    costs = {}
-    for t in sync_net.transitions:
-        c = get_move_cost_for_heuristic(t, log_move_probabilities, model_move_probabilities)
-        costs[t] = c
-    solver = pywraplp.Solver('SolveSimpleSystem', pywraplp.Solver.GLOP_LINEAR_PROGRAMMING)
+def __compute_heuristic_regular_cost(sync_net, current_marking, final_marking, costs):
+    solver = pywraplp.Solver('LP', pywraplp.Solver.GLOP_LINEAR_PROGRAMMING)
     variables = {}
     constraints = []
     for t in sync_net.transitions:
@@ -217,7 +202,7 @@ def __compute_heuristic_most_probable_alignments(sync_net, current_marking, log_
 
         if p.name[1] == SKIP:
             # place belongs to the trace net part
-            lb_and_ub = sync_net_final_marking[p] - current_marking[p]
+            lb_and_ub = final_marking[p] - current_marking[p]
             c = solver.Constraint(lb_and_ub, lb_and_ub)
         else:
             # place belongs to the process net part
@@ -257,9 +242,21 @@ def __compute_heuristic_most_probable_alignments(sync_net, current_marking, log_
     # for v in variables:
     #     print(str(v.name) + ":" + str(variables[v].solution_value()))
     lp_solution = 0
+    res_vector = {}
     for v in variables:
         lp_solution += variables[v].solution_value() * costs[v]
-    return lp_solution
+        res_vector[v] = variables[v].solution_value()
+    return lp_solution, res_vector
+
+
+def __compute_heuristic_most_probable_alignments(sync_net, current_marking, log_move_probabilities,
+                                                 model_move_probabilities,
+                                                 final_marking):
+    costs = {}
+    for t in sync_net.transitions:
+        c = get_move_cost_for_heuristic(t, log_move_probabilities, model_move_probabilities)
+        costs[t] = c
+    return __compute_heuristic_regular_cost(sync_net, current_marking, final_marking, costs)
 
 
 def get_move_cost_for_heuristic(t, log_move_probabilities, model_move_probabilities):
@@ -346,13 +343,13 @@ class SearchTuple:
         return " ".join(string_build)
 
 
-if __name__ == '__main__':
+def test1():
     # TEST ####### TEST ####### TEST ####### TEST ####### TEST ####### TEST ####### TEST ####### TEST ####### TEST #####
 
     # create petri net
     test_petri_net = PetriNet("test")
     places = {}
-    for i in range(1, 4):
+    for i in range(1, 5):
         places['p_%i' % i] = PetriNet.Place('p_%i' % i)
         test_petri_net.places.add(places['p_%i' % i])
 
@@ -361,7 +358,7 @@ if __name__ == '__main__':
         't_A': PetriNet.Transition('t_A', 'A'),
         't_B': PetriNet.Transition('t_B', 'B'),
         't_C': PetriNet.Transition('t_C', 'C'),
-        # 't_D': PetriNet.Transition('t_D', 'None'),
+        't_D': PetriNet.Transition('t_D', 'D'),
         # 't_E': PetriNet.Transition('t_E', 'None')
 
     }
@@ -375,11 +372,13 @@ if __name__ == '__main__':
     petri_net_utils.add_arc_from_to(places['p_2'], transitions['t_C'], test_petri_net)
     petri_net_utils.add_arc_from_to(transitions['t_B'], places['p_3'], test_petri_net)
     petri_net_utils.add_arc_from_to(transitions['t_C'], places['p_3'], test_petri_net)
+    petri_net_utils.add_arc_from_to(places['p_3'], transitions['t_D'], test_petri_net)
+    petri_net_utils.add_arc_from_to(transitions['t_D'], places['p_4'], test_petri_net)
 
-    initial_marking = Marking()
-    initial_marking[places['p_1']] = 1
-    final_marking = Marking()
-    final_marking[places['p_3']] = 1
+    im = Marking()
+    im[places['p_1']] = 1
+    fm = Marking()
+    fm[places['p_4']] = 1
 
     traces = [
         {"frequency": 1, "events": ["A"]}
@@ -390,17 +389,16 @@ if __name__ == '__main__':
     sync_prod_net, sync_initial_marking, sync_final_marking = petri.synchronous_product.construct(trace_net, trace_im,
                                                                                                   trace_fm,
                                                                                                   test_petri_net,
-                                                                                                  initial_marking,
-                                                                                                  final_marking,
+                                                                                                  im,
+                                                                                                  fm,
                                                                                                   SKIP)
 
     gviz = petri_net_visualization_factory.apply(test_petri_net, sync_initial_marking, sync_final_marking,
                                                  parameters={"format": "svg", 'debug': True})
     petri_net_visualization_factory.view(gviz)
-    incidence_matrix = petri.incidence_matrix.construct(sync_prod_net)
 
     traces = [
-        {"frequency": 40, "events": ["A","B","C"]},
+        {"frequency": 40, "events": ["A", "X", "C", "D"]},
         {"frequency": 10, "events": ["A", "C"]}
     ]
 
@@ -411,11 +409,15 @@ if __name__ == '__main__':
     log_move_prob = calculate_log_move_probability(event_log, log_move_prior)
 
     model_move_probabilities_without_prior = calculate_model_move_probabilities_without_prior(event_log, test_petri_net,
-                                                                                              initial_marking,
-                                                                                              final_marking)
+                                                                                              im,
+                                                                                              fm)
 
     res = __compute_heuristic_most_probable_alignments(sync_prod_net, sync_initial_marking, log_move_prob,
                                                        model_move_probabilities_without_prior, sync_final_marking)
     print(res)
 
-    apply(event_log[0], test_petri_net, initial_marking, final_marking)
+    apply(event_log[0], test_petri_net, im, fm)
+
+
+if __name__ == '__main__':
+    test1()

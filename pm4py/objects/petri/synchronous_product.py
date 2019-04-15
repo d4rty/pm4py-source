@@ -57,7 +57,6 @@ def construct(pn1, im1, fm1, pn2, im2, fm2, skip):
 
 
 def extend_trace_net_of_synchronous_product_net(sync_net, event, sync_fm, skip, activity_key=xes_util.DEFAULT_NAME_KEY):
-    print("extend trace net part")
     last_place_from_trace_net_part = None
     for p in sync_fm:
         if place_from_synchronous_product_net_belongs_to_trace_net_part(p):
