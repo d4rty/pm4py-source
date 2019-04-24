@@ -14,6 +14,8 @@ References
 """
 import copy
 import heapq
+import time
+
 import math
 
 import numpy as np
@@ -62,7 +64,8 @@ def get_best_worst_cost(petri_net, initial_marking, final_marking):
     return best_worst['cost'] // alignments.utils.STD_MODEL_LOG_MOVE_COST
 
 
-def apply(trace, petri_net, initial_marking, final_marking, find_all_opt_alignments=False, parameters=None):
+def apply(trace, petri_net, initial_marking, final_marking, find_all_opt_alignments=False, dijkstra=False,
+          parameters=None):
     """
     Performs the basic alignment search, given a trace and a net.
 
@@ -118,10 +121,11 @@ def apply(trace, petri_net, initial_marking, final_marking, find_all_opt_alignme
     # pn_vis_factory.view(gviz)
 
     return apply_sync_prod(sync_prod, sync_initial_marking, sync_final_marking, cost_function,
-                           alignments.utils.SKIP, find_all_opt_alignments)
+                           alignments.utils.SKIP, find_all_opt_alignments, dijkstra)
 
 
-def apply_sync_prod(sync_prod, initial_marking, final_marking, cost_function, skip, find_all_opt_alignments=False):
+def apply_sync_prod(sync_prod, initial_marking, final_marking, cost_function, skip, find_all_opt_alignments=False,
+                    dijkstra=False):
     """
     Performs the basic alignment search on top of the synchronous product net, given a cost function and skip-symbol
 
@@ -140,16 +144,24 @@ def apply_sync_prod(sync_prod, initial_marking, final_marking, cost_function, sk
     """
     if find_all_opt_alignments:
         return __search_for_all_optimal_paths(sync_prod, initial_marking, final_marking, cost_function, skip)
+    elif dijkstra:
+        return __search_dijkstra(sync_prod, initial_marking, final_marking, cost_function, skip)
     else:
         return __search(sync_prod, initial_marking, final_marking, cost_function, skip)
 
 
 def __search(sync_net, ini, fin, cost_function, skip):
+    start_time = time.time()
+    heuristic_time = 0
     incidence_matrix = petri.incidence_matrix.construct(sync_net)
     ini_vec, fin_vec, cost_vec = __vectorize_initial_final_cost(incidence_matrix, ini, fin, cost_function)
 
     closed_set = set()
+
+    start_heuristic_time = time.time()
     h, x = __compute_exact_heuristic(sync_net, incidence_matrix, ini, cost_vec, fin_vec)
+    heuristic_time = heuristic_time + time.time() - start_heuristic_time
+
     ini_state = SearchTuple(0 + h, 0, h, ini, None, None, x, True)
     open_set = [ini_state]  # visited markings
     visited = 0
@@ -158,7 +170,11 @@ def __search(sync_net, ini, fin, cost_function, skip):
     while not len(open_set) == 0:
         curr = heapq.heappop(open_set)
         if not curr.trust:
+
+            start_heuristic_time = time.time()
             h, x = __compute_exact_heuristic(sync_net, incidence_matrix, curr.m, cost_vec, fin_vec)
+            heuristic_time = heuristic_time + time.time() - start_heuristic_time
+
             tp = SearchTuple(curr.g + h, curr.g, h, curr.m, curr.p, curr.t, x, __trust_solution(x))
             heapq.heappush(open_set, tp)
             heapq.heapify(open_set)  # transform a populated list into a heap
@@ -168,10 +184,9 @@ def __search(sync_net, ini, fin, cost_function, skip):
         current_marking = curr.m
         closed_set.add(current_marking)
         if current_marking == fin:
-            return __reconstruct_alignment(curr, visited, queued, traversed)
+            return __reconstruct_alignment(curr, visited, queued, traversed, time.time() - start_time, heuristic_time)
 
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
-            # TODO why is it not possible to have a log move first and afterwards a model move?
             if curr.t is not None and __is_log_move(curr.t, skip) and __is_model_move(t, skip):
                 continue
             traversed += 1
@@ -188,8 +203,53 @@ def __search(sync_net, ini, fin, cost_function, skip):
                 open_set.remove(alt)
                 heapq.heapify(open_set)
             queued += 1
+
+            start_heuristic_time = time.time()
             h, x = __derive_heuristic(incidence_matrix, cost_vec, curr.x, t, curr.h)
+            heuristic_time = heuristic_time + time.time() - start_heuristic_time
+
             tp = SearchTuple(g + h, g, h, new_marking, curr, t, x, __trust_solution(x))
+            heapq.heappush(open_set, tp)
+            heapq.heapify(open_set)
+
+
+def __search_dijkstra(sync_net, ini, fin, cost_function, skip):
+    start_time = time.time()
+    closed_set = set()
+    h, x = 0, None
+    ini_state = SearchTuple(0 + h, 0, h, ini, None, None, x, True)
+    open_set = [ini_state]  # visited markings
+    visited = 0
+    queued = 0
+    traversed = 0
+    while not len(open_set) == 0:
+        curr = heapq.heappop(open_set)
+
+        visited += 1
+        current_marking = curr.m
+        closed_set.add(current_marking)
+        if current_marking == fin:
+            return __reconstruct_alignment(curr, visited, queued, traversed, time.time() - start_time, 0)
+
+        for t in petri.semantics.enabled_transitions(sync_net, current_marking):
+            if curr.t is not None and __is_log_move(curr.t, skip) and __is_model_move(t, skip):
+                continue
+            traversed += 1
+            new_marking = petri.semantics.execute(t, sync_net, current_marking)
+            if new_marking in closed_set:
+                continue
+            g = curr.g + cost_function[t]
+
+            # enum is a tuple (int, SearchTuple), alt is a SearchTuple
+            alt = next((enum[1] for enum in enumerate(open_set) if enum[1].m == new_marking), None)
+            if alt is not None:
+                if g >= alt.g:
+                    continue
+                open_set.remove(alt)
+                heapq.heapify(open_set)
+            queued += 1
+            h, x = 0, None
+            tp = SearchTuple(g + h, g, h, new_marking, curr, t, x, True)
             heapq.heappush(open_set, tp)
             heapq.heapify(open_set)
 
@@ -233,7 +293,6 @@ def __search_for_all_optimal_paths(sync_net, ini, fin, cost_function, skip):
             # examine all successor nodes
             for t in petri.semantics.enabled_transitions(sync_net, current_marking):
                 # if curr.t is not None and __is_log_move(curr.t, skip) and __is_model_move(t, skip):
-                #    # TODO is there never a log move and a successive model move in an optimal alignment ?
                 #   continue
                 traversed += 1
 
@@ -269,9 +328,7 @@ def __search_for_all_optimal_paths(sync_net, ini, fin, cost_function, skip):
                     alt = next((enum[1] for enum in enumerate(open_set) if enum[1].m == new_marking), None)
                     if alt is not None:
                         if g >= alt.g:
-                            print("!!!!!!!!!!!!!!!!!!")
                             continue
-                            print("!!!!!!!!!!!!!!!!!!")
                         open_set.remove(alt)
                         heapq.heapify(open_set)
                     queued += 1
@@ -290,7 +347,8 @@ def __search_for_all_optimal_paths(sync_net, ini, fin, cost_function, skip):
                 return __reconstruct_all_optimal_alignments(state, visited, queued, traversed)
 
 
-def __reconstruct_alignment(state, visited, queued, traversed):
+def __reconstruct_alignment(state, visited, queued, traversed, total_computation_time=0,
+                            heuristic_computation_time=0):
     # state is a SearchTuple
     parent = state.p
     alignment = [{"marking_before_transition": state.p.m,
@@ -304,7 +362,8 @@ def __reconstruct_alignment(state, visited, queued, traversed):
                       "marking_after_transition": parent.m}] + alignment
         parent = parent.p
     return {'alignment': alignment, 'cost': state.g, 'visited_states': visited, 'queued_states': queued,
-            'traversed_arcs': traversed}
+            'traversed_arcs': traversed, 'total_computation_time': total_computation_time,
+            'heuristic_computation_time': heuristic_computation_time}
 
 
 def __reconstruct_all_optimal_alignments(state, visited, queued, traversed):

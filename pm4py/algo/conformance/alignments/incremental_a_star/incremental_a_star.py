@@ -1,6 +1,5 @@
 import heapq
-import os
-
+import time
 import math
 
 from ortools.linear_solver import pywraplp
@@ -16,7 +15,6 @@ from pm4py.objects.log.importer.xes.factory import import_log_from_string
 from pm4py.objects.log.log import Trace
 from pm4py.objects.petri.petrinet import PetriNet, Marking
 from pm4py.objects.petri import utils as petri_net_utils
-from pm4py.objects.petri.utils import construct_trace_net_cost_aware
 from pm4py.util.constants import PARAMETER_CONSTANT_ACTIVITY_KEY
 from pm4py.visualization.petrinet import factory as petri_net_visualization_factory
 from pm4py.objects.log.importer.xes import factory as xes_importer
@@ -26,26 +24,38 @@ from pm4py.algo.conformance.alignments.most_probable_alignments.miscellaneous_ut
     is_model_move, is_log_move, place_from_synchronous_product_net_belongs_to_process_net_part, \
     place_from_synchronous_product_net_belongs_to_trace_net_part
 from pm4py.visualization.petrinet import factory as pn_vis_factory
-from pm4py.objects.conversion.log import factory as log_conv
 
 model_move_probabilities_for_heuristic = None
 
 
-def apply(trace, petri_net, initial_marking, final_marking, parameters=None):
+def apply(trace, petri_net, initial_marking, final_marking, parameters=None, debug_print=False, derive_heuristic=True,
+          dijkstra=False):
+    start_time = time.time()
+    duration_solving_lps_total = 0
+
     activity_key = DEFAULT_NAME_KEY if parameters is None or PARAMETER_CONSTANT_ACTIVITY_KEY not in parameters else \
         parameters[
             pm4py.util.constants.PARAMETER_CONSTANT_ACTIVITY_KEY]
-    incremental_trace = Trace()
 
+    incremental_trace = Trace()
     # create empty closed and open set
     open_set = []
     closed_set = set()
     first_event = True
+    alignment = None
+
+    visited_states_total = 0
+    traversed_arcs_total = 0
+    queued_states_total = 0
+    intermediate_results = []
+    heuristic_computation_time_total = 0
+
     for event in trace:
+        start_time_trace = time.time()
         incremental_trace.append(event)
-        print(incremental_trace)
+        if debug_print:
+            print(incremental_trace)
         if first_event:
-            print("first event")
             # activity_key: :class:`str` key of the attribute of the events that defines the activity name
             trace_net, trace_im, trace_fm = petri.utils.construct_trace_net(incremental_trace,
                                                                             activity_key=activity_key)
@@ -58,40 +68,76 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None):
                                                                               SKIP)
             first_event = False
         else:
-            print("not first event")
             sync_prod, sync_fm = petri.synchronous_product.extend_trace_net_of_synchronous_product_net(sync_prod, event,
                                                                                                        sync_fm, SKIP,
                                                                                                        activity_key)
 
-        gviz = pn_vis_factory.apply(sync_prod, sync_im, sync_fm,
-                                    parameters={"debug": True, "format": "svg"})
-        pn_vis_factory.view(gviz)
-
+        if debug_print:
+            gviz = pn_vis_factory.apply(sync_prod, sync_im, sync_fm,
+                                        parameters={"debug": True, "format": "svg"})
+            pn_vis_factory.view(gviz)
         cost_function = alignments.utils.construct_standard_cost_function(sync_prod, SKIP)
+        prefix_alignment, open_set, closed_set, duration_solving_lps = __search(sync_prod, sync_im, sync_fm,
+                                                                                cost_function,
+                                                                                SKIP, open_set, closed_set,
+                                                                                derive_heuristic=derive_heuristic,
+                                                                                dijkstra=dijkstra)
+        duration_solving_lps_total += duration_solving_lps
+        alignment = prefix_alignment
+        # update statistic values
+        visited_states_total += res['visited_states']
+        traversed_arcs_total += res['traversed_arcs']
+        queued_states_total += res['queued_states']
+        heuristic_computation_time_total += res['heuristic_computation_time']
 
-        prefix_alignment, open_set, closed_set = __search(sync_prod, sync_im, sync_fm,
-                                                          cost_function,
-                                                          SKIP, open_set, closed_set)
-        print(prefix_alignment)
-        print_alignment(prefix_alignment)
-        print("cost: ", prefix_alignment["cost"])
-        print(open_set)
-        print(closed_set)
-        print("\n\n---------------------------------------------------\n\n")
+        res = {'trace_length': len(incremental_trace),
+               'alignment': prefix_alignment['alignment'],
+               'cost': prefix_alignment['cost'],
+               'visited_states': visited_states_total,
+               'queued_states': queued_states_total,
+               'traversed_arcs': traversed_arcs_total,
+               'total_computation_time': time.time() - start_time_trace,
+               'heuristic_computation_time': heuristic_computation_time_total}
+        intermediate_results.append(res)
+        if debug_print:
+            print(prefix_alignment)
+            print_alignment(prefix_alignment)
+            print("cost: ", prefix_alignment["cost"])
+            print(open_set)
+            print(closed_set)
+            print("\n\n---------------------------------------------------\n\n")
+
+    duration_total = time.time() - start_time
+    res = {'alignment': alignment['alignment'], 'cost': alignment['cost'],
+           'visited_states': alignment['visited_states'], 'queued_states': alignment['queued_states'],
+           'traversed_arcs': alignment['traversed_arcs'], 'total_computation_time': duration_total,
+           'heuristic_computation_time': duration_solving_lps_total, 'intermediate_results': intermediate_results}
+    return res
 
 
-def __search(sync_net, initial_m, final_m, cost_function, skip, open_set_heap, closed_set):
-    h, x = __compute_heuristic_regular_cost(sync_net, initial_m, final_m, cost_function)
-    ini_state = SearchTuple(0 + h, 0, h, initial_m, None, None, x, True)
+def __search(sync_net, initial_m, final_m, cost_function, skip, open_set_heap, closed_set,
+             recalculate_heuristic_in_beginning=True, derive_heuristic=False, dijkstra=False):
+    duration_solving_lps = 0
     if len(open_set_heap) == 0:
+        if dijkstra:
+            h, x, duration = 0, None, 0
+        else:
+            h, x, duration = __compute_heuristic_regular_cost(sync_net, initial_m, final_m, cost_function)
+        duration_solving_lps += duration
+        ini_state = SearchTuple(0 + h, 0, h, initial_m, None, None, x, True)
         open_set_heap = [ini_state]
     else:
-        # recalculate heuristic for all markings in open set
-        for st in open_set_heap:
-            h, x = __compute_heuristic_regular_cost(sync_net, st.m, final_m, cost_function)
-            st.h = h
-            st.f = st.g + st.h
-            st.x = x
+        if recalculate_heuristic_in_beginning:
+            # recalculate heuristic for all markings in open set
+            for st in open_set_heap:
+                if dijkstra:
+                    h, x, duration = 0, None, 0
+                else:
+                    h, x, duration = __compute_heuristic_regular_cost(sync_net, st.m, final_m, cost_function)
+                duration_solving_lps += duration
+                st.h = h
+                st.f = st.g + st.h
+                st.x = x
         heapq.heapify(open_set_heap)  # visited markings
     visited = 0
     queued = 0
@@ -116,7 +162,8 @@ def __search(sync_net, initial_m, final_m, cost_function, skip, open_set_heap, c
                         if place.name == place2.name:
                             # found a final marking of the trace net --> put marking back in open set
                             heapq.heappush(open_set_heap, curr)
-                            return __reconstruct_alignment(curr, visited, queued, traversed), open_set_heap, closed_set
+                            return __reconstruct_alignment(curr, visited, queued,
+                                                           traversed), open_set_heap, closed_set, duration_solving_lps
 
         closed_set.add(current_marking)
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
@@ -137,7 +184,18 @@ def __search(sync_net, initial_m, final_m, cost_function, skip, open_set_heap, c
                 open_set_heap.remove(alt)
                 heapq.heapify(open_set_heap)
             queued += 1
-            h, x = __compute_heuristic_regular_cost(sync_net, new_marking, final_m, cost_function)
+
+            duration = 0
+            if dijkstra:
+                h, x, duration = 0, None, 0
+            else:
+                if derive_heuristic:
+                    h, x = __derive_heuristic(cost_function, t, curr.h, curr.x)
+                if not h or not derive_heuristic:
+                    h, x, duration = __compute_heuristic_regular_cost(sync_net, new_marking, final_m, cost_function)
+
+            duration_solving_lps += duration
+
             tp = SearchTuple(g + h, g, h, new_marking, curr, t, x, True)
             heapq.heappush(open_set_heap, tp)
             heapq.heapify(open_set_heap)
@@ -161,6 +219,8 @@ def __reconstruct_alignment(state, visited, queued, traversed):
 
 
 def __compute_heuristic_regular_cost(sync_net, current_marking, final_marking, costs):
+    # return 0, None, 0
+    start_time = time.time()
     solver = pywraplp.Solver('LP', pywraplp.Solver.GLOP_LINEAR_PROGRAMMING)
     variables = {}
     constraints = []
@@ -246,7 +306,17 @@ def __compute_heuristic_regular_cost(sync_net, current_marking, final_marking, c
     for v in variables:
         lp_solution += variables[v].solution_value() * costs[v]
         res_vector[v] = variables[v].solution_value()
-    return lp_solution, res_vector
+    duration = time.time() - start_time
+    return lp_solution, res_vector, duration
+
+
+def __derive_heuristic(costs, transition, heuristic_value, res_vector):
+    if res_vector[transition] > 0:
+        new_res_vector = res_vector.copy()
+        new_res_vector[transition] -= 1
+        new_heuristic_value = heuristic_value - costs[transition]
+        return new_heuristic_value, new_res_vector
+    return None, None
 
 
 def __compute_heuristic_most_probable_alignments(sync_net, current_marking, log_move_probabilities,
@@ -343,9 +413,8 @@ class SearchTuple:
         return " ".join(string_build)
 
 
-def test1():
+def test():
     # TEST ####### TEST ####### TEST ####### TEST ####### TEST ####### TEST ####### TEST ####### TEST ####### TEST #####
-
     # create petri net
     test_petri_net = PetriNet("test")
     places = {}
@@ -360,12 +429,9 @@ def test1():
         't_C': PetriNet.Transition('t_C', 'C'),
         't_D': PetriNet.Transition('t_D', 'D'),
         # 't_E': PetriNet.Transition('t_E', 'None')
-
     }
-
     for transition in transitions:
         test_petri_net.transitions.add(transitions[transition])
-
     petri_net_utils.add_arc_from_to(places['p_1'], transitions['t_A'], test_petri_net)
     petri_net_utils.add_arc_from_to(transitions['t_A'], places['p_2'], test_petri_net)
     petri_net_utils.add_arc_from_to(places['p_2'], transitions['t_B'], test_petri_net)
@@ -411,13 +477,11 @@ def test1():
     model_move_probabilities_without_prior = calculate_model_move_probabilities_without_prior(event_log, test_petri_net,
                                                                                               im,
                                                                                               fm)
-
-    res = __compute_heuristic_most_probable_alignments(sync_prod_net, sync_initial_marking, log_move_prob,
-                                                       model_move_probabilities_without_prior, sync_final_marking)
-    print(res)
-
+    # res = __compute_heuristic_most_probable_alignments(sync_prod_net, sync_initial_marking, log_move_prob,
+    #                                                    model_move_probabilities_without_prior, sync_final_marking)
+    # print(res)
     apply(event_log[0], test_petri_net, im, fm)
 
 
 if __name__ == '__main__':
-    test1()
+    test()
