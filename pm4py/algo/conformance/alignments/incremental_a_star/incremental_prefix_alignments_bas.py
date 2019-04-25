@@ -166,7 +166,8 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                 prefix_alignment = prefix_alignment + [{"marking_before_transition": initial_marking,
                                                         "label": synchronous_move_transition.label,
                                                         "name": synchronous_move_transition.name,
-                                                        "cost_so_far": cost_function[synchronous_move_transition],
+                                                        "cost_so_far": cost_so_far + cost_function[
+                                                            synchronous_move_transition],
                                                         "marking_after_transition": new_marking}]
                 return {'alignment': prefix_alignment,
                         'cost': cost_prefix_alignment,
