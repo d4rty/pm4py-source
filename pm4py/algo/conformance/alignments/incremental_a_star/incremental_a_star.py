@@ -85,10 +85,10 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None, deb
         duration_solving_lps_total += duration_solving_lps
         alignment = prefix_alignment
         # update statistic values
-        visited_states_total += res['visited_states']
-        traversed_arcs_total += res['traversed_arcs']
-        queued_states_total += res['queued_states']
-        heuristic_computation_time_total += res['heuristic_computation_time']
+        visited_states_total += prefix_alignment['visited_states']
+        traversed_arcs_total += prefix_alignment['traversed_arcs']
+        queued_states_total += prefix_alignment['queued_states']
+        heuristic_computation_time_total += duration_solving_lps
 
         res = {'trace_length': len(incremental_trace),
                'alignment': prefix_alignment['alignment'],

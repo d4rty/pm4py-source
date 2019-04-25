@@ -18,7 +18,7 @@ from pm4py.algo.conformance.alignments.versions.state_equation_a_star import Sea
 from pm4py.objects.petri.semantics import enabled_transitions
 
 
-def apply(trace, petri_net, initial_marking, final_marking, window_size=0, parameters=None, debug_print=True):
+def apply(trace, petri_net, initial_marking, final_marking, window_size=0, parameters=None, debug_print=False):
     start_time = time.time()
 
     activity_key = DEFAULT_NAME_KEY if parameters is None or PARAMETER_CONSTANT_ACTIVITY_KEY not in parameters else \
@@ -71,7 +71,7 @@ def apply(trace, petri_net, initial_marking, final_marking, window_size=0, param
         res = __calculate_prefix_alignment_for_next_event(petri_net, sync_prod, sync_im, sync_fm, current_marking,
                                                           cost_function,
                                                           SKIP, prefix_alignment, incremental_trace, activity_key,
-                                                          window_size)
+                                                          window_size, debug_print=debug_print)
         prefix_alignment = res['alignment']
         # update statistic values
         visited_states_total += res['visited_states']
@@ -104,7 +104,7 @@ def apply(trace, petri_net, initial_marking, final_marking, window_size=0, param
 
 def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_marking, final_marking,
                                                 marking_after_prefix_alignment, cost_function, skip, prefix_alignment,
-                                                trace, activity_key, window_size, debug_print=True):
+                                                trace, activity_key, window_size, debug_print=False):
     start_time = time.time()
     event_to_align = trace[len(trace) - 1]
 

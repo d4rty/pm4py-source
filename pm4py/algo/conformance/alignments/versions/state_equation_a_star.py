@@ -151,6 +151,7 @@ def apply_sync_prod(sync_prod, initial_marking, final_marking, cost_function, sk
 
 
 def __search(sync_net, ini, fin, cost_function, skip):
+    print("__search(...)")
     start_time = time.time()
     heuristic_time = 0
     incidence_matrix = petri.incidence_matrix.construct(sync_net)
@@ -214,6 +215,7 @@ def __search(sync_net, ini, fin, cost_function, skip):
 
 
 def __search_dijkstra(sync_net, ini, fin, cost_function, skip):
+    print("__search_dijkstra(...)")
     start_time = time.time()
     closed_set = set()
     h, x = 0, None

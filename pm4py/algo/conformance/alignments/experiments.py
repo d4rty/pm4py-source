@@ -17,7 +17,7 @@ def calculate_prefix_alignments(petri_net_filename, log, path_to_files, trace_in
                'computation_duration_lp_solving': [], 'size_closed_set': []}
 
     pnml_file_path = os.path.join(path_to_files, petri_net_filename)
-    net, marking, fmarking = petri.importer.pnml.import_net(
+    net, im, fm = petri.importer.pnml.import_net(
         pnml_file_path)
     # gviz = pn_vis_factory.apply(net, marking, fmarking,
     #                             parameters={"format": "svg", 'debug': False})
@@ -25,14 +25,22 @@ def calculate_prefix_alignments(petri_net_filename, log, path_to_files, trace_in
 
     iteration = 1
     for i in trace_indices:
-        print("Trace index: %i | Trace %i of %i | %s" % (i, iteration, len(trace_indices), petri_net_filename))
-        calculate_prefix_alignment_online_conformance_by_bas(log[i], net, marking, fmarking)
-
+        print("Trace index: %i | Trace %i of %i | %s\n" % (i, iteration, len(trace_indices), petri_net_filename))
+        print("calculate_prefix_alignments_dijkstra_from_scratch")
+        res0 = calculate_prefix_alignments_dijkstra_from_scratch(log[i], net, im, fm)
+        print("calculate_prefix_alignments_from_scratch_with_heuristic")
+        res1 = calculate_prefix_alignments_from_scratch_with_heuristic(log[i], net, im, fm)
+        print("calculate_prefix_alignment_modified_a_star_dijkstra")
+        res2 = calculate_prefix_alignment_modified_a_star_dijkstra(log[i], net, im, fm)
+        print("calculate_prefix_alignment_modified_a_star_with_heuristic")
+        res3 = calculate_prefix_alignment_modified_a_star_with_heuristic(log[i], net, im, fm)
+        print("calculate_prefix_alignment_online_conformance_by_bas")
+        res4 = calculate_prefix_alignment_online_conformance_by_bas(log[i], net, im, fm)
+        print("calculate_prefix_alignment_online_conformance_by_bas - window size 1")
+        res5 = calculate_prefix_alignment_online_conformance_by_bas(log[i], net, im, fm, window_size=1)
+        print("calculate_prefix_alignment_online_conformance_by_bas - window size 2")
+        res6 = calculate_prefix_alignment_online_conformance_by_bas(log[i], net, im, fm, window_size=2)
         iteration += 1
-    # results_df = pd.DataFrame(data=results)
-    # result_file_name = 'results_' + petri_net_filename + "_" + datetime.datetime.now().strftime("%Y-%m-%d") + ".pkl"
-    # filepath = os.path.join(path_to_files, result_file_name)
-    # results_df.to_pickle(filepath)
 
 
 def calculate_prefix_alignments_dijkstra_from_scratch(trace, petri_net, initial_marking, final_marking):
@@ -42,10 +50,8 @@ def calculate_prefix_alignments_dijkstra_from_scratch(trace, petri_net, initial_
     afterwards <e_1,e_2>, ... and so on
     :return:
     '''
-    res = state_equation_a_star_apply(trace, petri_net, initial_marking, final_marking, find_all_opt_alignments=False,
-                                      dijkstra=True)
-    return res['alignment'], res['cost'], res['visited_states'], res['queued_states'], res['traversed_arcs'], res[
-        'total_computation_time'], res['heuristic_computation_time']
+    res = state_equation_a_star_apply(trace, petri_net, initial_marking, final_marking, dijkstra=True)
+    return res
 
 
 def calculate_prefix_alignments_from_scratch_with_heuristic(trace, petri_net, initial_marking, final_marking):
@@ -56,10 +62,8 @@ def calculate_prefix_alignments_from_scratch_with_heuristic(trace, petri_net, in
     :return:
     '''
 
-    res = state_equation_a_star_apply(trace, petri_net, initial_marking, final_marking, find_all_opt_alignments=False,
-                                      dijkstra=True)
-    return res['alignment'], res['cost'], res['visited_states'], res['queued_states'], res['traversed_arcs'], res[
-        'total_computation_time'], res['heuristic_computation_time']
+    res = state_equation_a_star_apply(trace, petri_net, initial_marking, final_marking)
+    return res
 
 
 def calculate_prefix_alignment_modified_a_star_dijkstra(trace, petri_net, initial_marking, final_marking):
@@ -69,8 +73,7 @@ def calculate_prefix_alignment_modified_a_star_dijkstra(trace, petri_net, initia
     :return:
     '''
     res = incremental_a_star_apply(trace, petri_net, initial_marking, final_marking, dijkstra=True)
-    return res['alignment'], res['cost'], res['visited_states'], res['queued_states'], res['traversed_arcs'], res[
-        'total_computation_time'], res['heuristic_computation_time']
+    return res
 
 
 def calculate_prefix_alignment_modified_a_star_with_heuristic(trace, petri_net, initial_marking, final_marking):
@@ -79,26 +82,18 @@ def calculate_prefix_alignment_modified_a_star_with_heuristic(trace, petri_net, 
     and keeps open and closed set in memory
     :return:
     '''
-    res = incremental_a_star_apply(trace, petri_net, initial_marking, final_marking, dijkstra=False)
-    return res['alignment'], res['cost'], res['visited_states'], res['queued_states'], res['traversed_arcs'], res[
-        'total_computation_time'], res['heuristic_computation_time'], res['intermediate']
+    res = incremental_a_star_apply(trace, petri_net, initial_marking, final_marking)
+    return res
 
 
-def calculate_prefix_alignment_online_conformance_by_bas(trace, petri_net, initial_marking, final_marking):
+def calculate_prefix_alignment_online_conformance_by_bas(trace, petri_net, initial_marking, final_marking,
+                                                         window_size=0):
     '''
     This methods uses Bas' method WITH optimality guarantees (i.e. no partial reverting)
     :return:
     '''
-    incremental_prefix_alignments_apply(trace, petri_net, initial_marking, final_marking)
-
-
-def calculate_prefix_alignment_online_conformance_by_bas_window_size(trace, petri_net, initial_marking, final_marking,
-                                                                     window_size):
-    '''
-    This methods uses Bas' method WITHOUT optimality guarantees (i.e. partial reverting)
-    :return:
-    '''
-    pass
+    res = incremental_prefix_alignments_apply(trace, petri_net, initial_marking, final_marking, window_size=window_size)
+    return res
 
 
 # def generate_petri_net(log, number_samples=None):
@@ -146,9 +141,9 @@ def execute_experiments_for_bpi_ch_2019():
     # see result below
 
     # indices of 100 traces that have a min length of 10
-    trace_indices = [8563]
+    trace_indices = [9863]
 
-    calculate_prefix_alignments("petri_net_1.pnml", log, path_to_files, trace_indices)
+    calculate_prefix_alignments("petri_net_2.pnml", log, path_to_files, trace_indices)
 
 
 if __name__ == '__main__':
