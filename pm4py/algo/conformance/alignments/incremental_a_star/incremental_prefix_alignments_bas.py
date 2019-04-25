@@ -18,7 +18,7 @@ from pm4py.algo.conformance.alignments.versions.state_equation_a_star import Sea
 from pm4py.objects.petri.semantics import enabled_transitions
 
 
-def apply(trace, petri_net, initial_marking, final_marking, parameters=None, debug_print=True, window_size=0):
+def apply(trace, petri_net, initial_marking, final_marking, window_size=0, parameters=None, debug_print=True):
     start_time = time.time()
 
     activity_key = DEFAULT_NAME_KEY if parameters is None or PARAMETER_CONSTANT_ACTIVITY_KEY not in parameters else \
@@ -130,6 +130,11 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                 'traversed_arcs': res['traversed_arcs'],
                 'total_computation_time': time.time() - start_time,
                 'heuristic_computation_time': res['heuristic_computation_time']}
+
+    if len(prefix_alignment) > 0:
+        cost_so_far = prefix_alignment[-1]['cost_so_far']
+    else:
+        cost_so_far = 0
 
     # check if there is a model move/ synchronous move transition that is labelled equally to event_to_align
     for t in process_net.transitions:
