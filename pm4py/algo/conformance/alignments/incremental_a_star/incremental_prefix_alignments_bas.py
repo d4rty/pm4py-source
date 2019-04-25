@@ -112,13 +112,24 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
     if debug_print:
         print("Next Event: ", activity_name)
 
-    # TODO implement window size
     if window_size > 0:
-        pass
-
-    cost_so_far = 0
-    if len(prefix_alignment) > 0:
-        cost_so_far = prefix_alignment[len(prefix_alignment) - 1]['cost_so_far']
+        prefix_alignment = prefix_alignment[:-window_size]
+        if len(prefix_alignment) > 0:
+            marking_after_prefix_alignment = prefix_alignment[-1]["marking_after_transition"]
+            cost_so_far = prefix_alignment[-1]['cost_so_far']
+        else:
+            marking_after_prefix_alignment = initial_marking
+            cost_so_far = 0
+        if debug_print:
+            print("START FROM SCRATCH -> A*")
+        res = __search(sync_net, marking_after_prefix_alignment, final_marking, cost_function, skip, cost_so_far)
+        return {'alignment': prefix_alignment + res['alignment'],
+                'cost': res['cost'] + cost_so_far,
+                'visited_states': res['visited_states'],
+                'queued_states': res['queued_states'],
+                'traversed_arcs': res['traversed_arcs'],
+                'total_computation_time': time.time() - start_time,
+                'heuristic_computation_time': res['heuristic_computation_time']}
 
     # check if there is a model move/ synchronous move transition that is labelled equally to event_to_align
     for t in process_net.transitions:
