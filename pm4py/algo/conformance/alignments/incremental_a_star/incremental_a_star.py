@@ -93,11 +93,11 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None, deb
         res = {'trace_length': len(incremental_trace),
                'alignment': prefix_alignment['alignment'],
                'cost': prefix_alignment['cost'],
-               'visited_states': visited_states_total,
-               'queued_states': queued_states_total,
-               'traversed_arcs': traversed_arcs_total,
+               'visited_states': prefix_alignment['visited_states'],
+               'queued_states': prefix_alignment['queued_states'],
+               'traversed_arcs': prefix_alignment['traversed_arcs'],
                'total_computation_time': time.time() - start_time_trace,
-               'heuristic_computation_time': heuristic_computation_time_total}
+               'heuristic_computation_time': duration_solving_lps}
         intermediate_results.append(res)
         if debug_print:
             print(prefix_alignment)
@@ -109,9 +109,9 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None, deb
 
     duration_total = time.time() - start_time
     res = {'alignment': alignment['alignment'], 'cost': alignment['cost'],
-           'visited_states': alignment['visited_states'], 'queued_states': alignment['queued_states'],
-           'traversed_arcs': alignment['traversed_arcs'], 'total_computation_time': duration_total,
-           'heuristic_computation_time': duration_solving_lps_total, 'intermediate_results': intermediate_results}
+           'visited_states': visited_states_total, 'queued_states': queued_states_total,
+           'traversed_arcs': traversed_arcs_total, 'total_computation_time': duration_total,
+           'heuristic_computation_time': heuristic_computation_time_total, 'intermediate_results': intermediate_results}
     return res
 
 

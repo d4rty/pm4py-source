@@ -20,7 +20,6 @@ from pm4py.objects.petri.semantics import enabled_transitions
 
 def apply(trace, petri_net, initial_marking, final_marking, window_size=0, parameters=None, debug_print=False):
     start_time = time.time()
-
     activity_key = DEFAULT_NAME_KEY if parameters is None or PARAMETER_CONSTANT_ACTIVITY_KEY not in parameters else \
         parameters[
             pm4py.util.constants.PARAMETER_CONSTANT_ACTIVITY_KEY]
@@ -38,6 +37,7 @@ def apply(trace, petri_net, initial_marking, final_marking, window_size=0, param
     current_marking = None
 
     for event in trace:
+        start_time_trace = time.time()
         incremental_trace.append(event)
 
         if debug_print:
@@ -61,9 +61,9 @@ def apply(trace, petri_net, initial_marking, final_marking, window_size=0, param
                                                                                                        activity_key)
         if debug_print:
             pass
-            # gviz = pn_vis_factory.apply(sync_prod, sync_im, sync_fm,
-            #                             parameters={"debug": True, "format": "svg"})
-            # pn_vis_factory.view(gviz)
+            gviz = pn_vis_factory.apply(sync_prod, sync_im, sync_fm,
+                                        parameters={"debug": True, "format": "svg"})
+            pn_vis_factory.view(gviz)
 
         cost_function = alignments.utils.construct_standard_cost_function(sync_prod, SKIP)
         if not current_marking:
@@ -82,11 +82,11 @@ def apply(trace, petri_net, initial_marking, final_marking, window_size=0, param
         intermediate_res = {'trace_length': len(incremental_trace),
                             'alignment': res['alignment'],
                             'cost': res['cost'],
-                            'visited_states': visited_states_total,
-                            'queued_states': queued_states_total,
-                            'traversed_arcs': traversed_arcs_total,
-                            'total_computation_time': time.time() - start_time,
-                            'heuristic_computation_time': heuristic_computation_time_total}
+                            'visited_states': res['visited_states'],
+                            'queued_states': res['queued_states'],
+                            'traversed_arcs': res['traversed_arcs'],
+                            'total_computation_time': time.time() - start_time_trace,
+                            'heuristic_computation_time': res['heuristic_computation_time']}
         intermediate_results.append(intermediate_res)
         current_marking = res['alignment'][-1]['marking_after_transition']
         if debug_print:
@@ -182,7 +182,7 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                     print("START FROM SCRATCH -> A*")
                 res = __search(sync_net, initial_marking, final_marking, cost_function, skip, cost_so_far)
                 return {'alignment': res['alignment'],
-                        'cost': res['cost'] + cost_so_far,
+                        'cost': res['cost'],
                         'visited_states': res['visited_states'],
                         'queued_states': res['queued_states'],
                         'traversed_arcs': res['traversed_arcs'],
