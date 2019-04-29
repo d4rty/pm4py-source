@@ -49,6 +49,7 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None, deb
     queued_states_total = 0
     intermediate_results = []
     heuristic_computation_time_total = 0
+    number_solved_lps_total = 0
 
     for event in trace:
         start_time_trace = time.time()
@@ -77,11 +78,13 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None, deb
                                         parameters={"debug": True, "format": "svg"})
             pn_vis_factory.view(gviz)
         cost_function = alignments.utils.construct_standard_cost_function(sync_prod, SKIP)
-        prefix_alignment, open_set, closed_set, duration_solving_lps = __search(sync_prod, sync_im, sync_fm,
-                                                                                cost_function,
-                                                                                SKIP, open_set, closed_set,
-                                                                                derive_heuristic=derive_heuristic,
-                                                                                dijkstra=dijkstra)
+        prefix_alignment, open_set, closed_set, duration_solving_lps, number_solved_lps = __search(sync_prod, sync_im,
+                                                                                                   sync_fm,
+                                                                                                   cost_function,
+                                                                                                   SKIP, open_set,
+                                                                                                   closed_set,
+                                                                                                   derive_heuristic=derive_heuristic,
+                                                                                                   dijkstra=dijkstra)
         duration_solving_lps_total += duration_solving_lps
         alignment = prefix_alignment
         # update statistic values
@@ -89,6 +92,7 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None, deb
         traversed_arcs_total += prefix_alignment['traversed_arcs']
         queued_states_total += prefix_alignment['queued_states']
         heuristic_computation_time_total += duration_solving_lps
+        number_solved_lps_total += number_solved_lps
 
         res = {'trace_length': len(incremental_trace),
                'alignment': prefix_alignment['alignment'],
@@ -97,7 +101,8 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None, deb
                'queued_states': prefix_alignment['queued_states'],
                'traversed_arcs': prefix_alignment['traversed_arcs'],
                'total_computation_time': time.time() - start_time_trace,
-               'heuristic_computation_time': duration_solving_lps}
+               'heuristic_computation_time': duration_solving_lps,
+               'number_solved_lps': number_solved_lps}
         intermediate_results.append(res)
         if debug_print:
             print(prefix_alignment)
@@ -111,33 +116,36 @@ def apply(trace, petri_net, initial_marking, final_marking, parameters=None, deb
     res = {'alignment': alignment['alignment'], 'cost': alignment['cost'],
            'visited_states': visited_states_total, 'queued_states': queued_states_total,
            'traversed_arcs': traversed_arcs_total, 'total_computation_time': duration_total,
-           'heuristic_computation_time': heuristic_computation_time_total, 'intermediate_results': intermediate_results}
+           'heuristic_computation_time': heuristic_computation_time_total,
+           'number_solved_lps': number_solved_lps_total, 'intermediate_results': intermediate_results}
     return res
 
 
-def __search(sync_net, initial_m, final_m, cost_function, skip, open_set_heap, closed_set,
-             recalculate_heuristic_in_beginning=True, derive_heuristic=False, dijkstra=False):
+def __search(sync_net, initial_m, final_m, cost_function, skip, open_set_heap, closed_set, derive_heuristic=False,
+             dijkstra=False):
+    number_solved_lps = 0
     duration_solving_lps = 0
     if len(open_set_heap) == 0:
         if dijkstra:
             h, x, duration = 0, None, 0
         else:
             h, x, duration = __compute_heuristic_regular_cost(sync_net, initial_m, final_m, cost_function)
+            number_solved_lps += 1
         duration_solving_lps += duration
         ini_state = SearchTuple(0 + h, 0, h, initial_m, None, None, x, True)
         open_set_heap = [ini_state]
     else:
-        if recalculate_heuristic_in_beginning:
-            # recalculate heuristic for all markings in open set
-            for st in open_set_heap:
-                if dijkstra:
-                    h, x, duration = 0, None, 0
-                else:
-                    h, x, duration = __compute_heuristic_regular_cost(sync_net, st.m, final_m, cost_function)
-                duration_solving_lps += duration
-                st.h = h
-                st.f = st.g + st.h
-                st.x = x
+        # recalculate heuristic for all markings in open set
+        for st in open_set_heap:
+            if dijkstra:
+                h, x, duration = 0, None, 0
+            else:
+                h, x, duration = __compute_heuristic_regular_cost(sync_net, st.m, final_m, cost_function)
+                number_solved_lps += 1
+            duration_solving_lps += duration
+            st.h = h
+            st.f = st.g + st.h
+            st.x = x
         heapq.heapify(open_set_heap)  # visited markings
     visited = 0
     queued = 0
@@ -162,8 +170,8 @@ def __search(sync_net, initial_m, final_m, cost_function, skip, open_set_heap, c
                         if place.name == place2.name:
                             # found a final marking of the trace net --> put marking back in open set
                             heapq.heappush(open_set_heap, curr)
-                            return __reconstruct_alignment(curr, visited, queued,
-                                                           traversed), open_set_heap, closed_set, duration_solving_lps
+                            return __reconstruct_alignment(curr, visited, queued, traversed), \
+                                   open_set_heap, closed_set, duration_solving_lps, number_solved_lps
 
         closed_set.add(current_marking)
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):

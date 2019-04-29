@@ -6,6 +6,7 @@ from cvxopt import matrix, solvers
 
 import pm4py
 from pm4py.algo.conformance import alignments
+from pm4py.algo.conformance.alignments.incremental_a_star.incremental_a_star import __compute_heuristic_regular_cost
 from pm4py.evaluation.replay_fitness.versions.alignment_based import DEFAULT_NAME_KEY
 from pm4py.objects import petri
 from pm4py.objects.log.log import Trace
@@ -33,7 +34,7 @@ def apply(trace, petri_net, initial_marking, final_marking, window_size=0, param
     queued_states_total = 0
     intermediate_results = []
     heuristic_computation_time_total = 0
-
+    number_solved_lps_total = 0
     current_marking = None
 
     for event in trace:
@@ -78,6 +79,7 @@ def apply(trace, petri_net, initial_marking, final_marking, window_size=0, param
         traversed_arcs_total += res['traversed_arcs']
         queued_states_total += res['queued_states']
         heuristic_computation_time_total += res['heuristic_computation_time']
+        number_solved_lps_total += res['number_solved_lps']
 
         intermediate_res = {'trace_length': len(incremental_trace),
                             'alignment': res['alignment'],
@@ -86,7 +88,8 @@ def apply(trace, petri_net, initial_marking, final_marking, window_size=0, param
                             'queued_states': res['queued_states'],
                             'traversed_arcs': res['traversed_arcs'],
                             'total_computation_time': time.time() - start_time_trace,
-                            'heuristic_computation_time': res['heuristic_computation_time']}
+                            'heuristic_computation_time': res['heuristic_computation_time'],
+                            'number_solved_lps': res['number_solved_lps']}
         intermediate_results.append(intermediate_res)
         current_marking = res['alignment'][-1]['marking_after_transition']
         if debug_print:
@@ -99,6 +102,7 @@ def apply(trace, petri_net, initial_marking, final_marking, window_size=0, param
             'visited_states': visited_states_total, 'queued_states': queued_states_total,
             'traversed_arcs': traversed_arcs_total, 'total_computation_time': duration_total,
             'heuristic_computation_time': heuristic_computation_time_total,
+            'number_solved_lps': number_solved_lps_total,
             'intermediate_results': intermediate_results}
 
 
@@ -129,7 +133,8 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                 'queued_states': res['queued_states'],
                 'traversed_arcs': res['traversed_arcs'],
                 'total_computation_time': time.time() - start_time,
-                'heuristic_computation_time': res['heuristic_computation_time']}
+                'heuristic_computation_time': res['heuristic_computation_time'],
+                'number_solved_lps': res['number_solved_lps']}
 
     if len(prefix_alignment) > 0:
         cost_so_far = prefix_alignment[-1]['cost_so_far']
@@ -175,7 +180,8 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                         'queued_states': 0,
                         'traversed_arcs': 0,
                         'total_computation_time': time.time() - start_time,
-                        'heuristic_computation_time': 0}
+                        'heuristic_computation_time': 0,
+                        'number_solved_lps': 0}
             else:
                 # USE A* TO FIND NEW OPTIMAL ALIGNMENT
                 if debug_print:
@@ -187,7 +193,8 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                         'queued_states': res['queued_states'],
                         'traversed_arcs': res['traversed_arcs'],
                         'total_computation_time': time.time() - start_time,
-                        'heuristic_computation_time': res['heuristic_computation_time']}
+                        'heuristic_computation_time': res['heuristic_computation_time'],
+                        'number_solved_lps': res['number_solved_lps']}
     # no corresponding transition found -> ADD LOG MOVE
     if debug_print:
         print("ADD LOG MOVE")
@@ -206,23 +213,23 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                     'visited_states': 0,
                     'queued_states': 0, 'traversed_arcs': 0,
                     'total_computation_time': time.time() - start_time,
-                    'heuristic_computation_time': 0}
+                    'heuristic_computation_time': 0,
+                    'number_solved_lps': 0}
 
     raise Exception('No corresponding log move transition found in sync net')
 
 
 def __search(sync_net, start_marking, final_marking, cost_function, skip, cost_to_reach_start_marking):
+    number_solved_lps = 0
+
     start_time = time.time()
     heuristic_time = 0
-    incidence_matrix = petri.incidence_matrix.construct(sync_net)
-    ini_vec, fin_vec, cost_vec = __vectorize_initial_final_cost(incidence_matrix, start_marking, final_marking,
-                                                                cost_function)
 
     closed_set = set()
 
-    start_heuristic_time = time.time()
-    h, x = __compute_exact_heuristic(sync_net, incidence_matrix, start_marking, cost_vec, fin_vec)
-    heuristic_time = heuristic_time + time.time() - start_heuristic_time
+    h, x, duration = __compute_heuristic_regular_cost(sync_net, start_marking, final_marking, cost_function)
+    number_solved_lps += 1
+    heuristic_time = heuristic_time + duration
 
     ini_state = SearchTuple(0 + h, 0, h, start_marking, None, None, x, True)
     open_set = [ini_state]  # visited markings
@@ -231,16 +238,6 @@ def __search(sync_net, start_marking, final_marking, cost_function, skip, cost_t
     traversed = 0
     while not len(open_set) == 0:
         curr = heapq.heappop(open_set)
-        if not curr.trust:
-            start_heuristic_time = time.time()
-            h, x = __compute_exact_heuristic(sync_net, incidence_matrix, curr.m, cost_vec, fin_vec)
-            heuristic_time = heuristic_time + time.time() - start_heuristic_time
-
-            tp = SearchTuple(curr.g + h, curr.g, h, curr.m, curr.p, curr.t, x, __trust_solution(x))
-            heapq.heappush(open_set, tp)
-            heapq.heapify(open_set)  # transform a populated list into a heap
-            continue
-
         visited += 1
         current_marking = curr.m
         closed_set.add(current_marking)
@@ -253,7 +250,7 @@ def __search(sync_net, start_marking, final_marking, cost_function, skip, cost_t
                         if place.name == place2.name:
                             # found a final marking of the trace net
                             return __reconstruct_alignment(curr, visited, queued, traversed, time.time() - start_time,
-                                                           heuristic_time)
+                                                           heuristic_time, number_solved_lps)
 
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
             if curr.t is not None and __is_log_move(curr.t, skip) and __is_model_move(t, skip):
@@ -263,7 +260,8 @@ def __search(sync_net, start_marking, final_marking, cost_function, skip, cost_t
             if new_marking in closed_set:
                 continue
             g = curr.g + cost_function[t]
-
+            if g > cost_to_reach_start_marking + 1999:  # add max costs of a log move
+                continue
             # enum is a tuple (int, SearchTuple), alt is a SearchTuple
             alt = next((enum[1] for enum in enumerate(open_set) if enum[1].m == new_marking), None)
             if alt is not None:
@@ -273,18 +271,20 @@ def __search(sync_net, start_marking, final_marking, cost_function, skip, cost_t
                 heapq.heapify(open_set)
             queued += 1
 
-            start_heuristic_time = time.time()
-            h, x = __derive_heuristic(incidence_matrix, cost_vec, curr.x, t, curr.h)
-            heuristic_time = heuristic_time + time.time() - start_heuristic_time
+            h, x = __derive_heuristic(cost_function, t, curr.h, curr.x)
+            if not h:
+                h, x, duration = __compute_heuristic_regular_cost(sync_net, new_marking, final_marking, cost_function)
+                number_solved_lps += 1
+                heuristic_time = heuristic_time + duration
 
-            tp = SearchTuple(g + h, g, h, new_marking, curr, t, x, __trust_solution(x))
+            tp = SearchTuple(g + h, g, h, new_marking, curr, t, x, True)
             heapq.heappush(open_set, tp)
             heapq.heapify(open_set)
 
 
 # TODO remove methods and import methods from state_equation_a_start.py
-def __reconstruct_alignment(state, visited, queued, traversed, total_computation_time=0,
-                            heuristic_computation_time=0):
+def __reconstruct_alignment(state, visited, queued, traversed, total_computation_time,
+                            heuristic_computation_time, number_solved_lps):
     # state is a SearchTuple
     parent = state.p
     alignment = [{"marking_before_transition": state.p.m,
@@ -301,20 +301,17 @@ def __reconstruct_alignment(state, visited, queued, traversed, total_computation
         parent = parent.p
     return {'alignment': alignment, 'cost': state.g, 'visited_states': visited, 'queued_states': queued,
             'traversed_arcs': traversed, 'total_computation_time': total_computation_time,
-            'heuristic_computation_time': heuristic_computation_time}
+            'heuristic_computation_time': heuristic_computation_time,
+            'number_solved_lps': number_solved_lps}
 
 
-def __derive_heuristic(incidence_matrix, cost_vec, x, t, h):
-    x_prime = x.copy()
-    x_prime[incidence_matrix.transitions[t]] -= 1
-    return max(0, h - cost_vec[incidence_matrix.transitions[t]]), x_prime
-
-
-def __trust_solution(x):
-    for v in x:
-        if v < -0.001:
-            return False
-    return True
+def __derive_heuristic(costs, transition, heuristic_value, res_vector):
+    if res_vector[transition] > 0:
+        new_res_vector = res_vector.copy()
+        new_res_vector[transition] -= 1
+        new_heuristic_value = heuristic_value - costs[transition]
+        return new_heuristic_value, new_res_vector
+    return None, None
 
 
 def __is_model_move(t, skip):
@@ -325,47 +322,11 @@ def __is_log_move(t, skip):
     return t.label[0] != skip and t.label[1] == skip
 
 
-def __compute_exact_heuristic(sync_net, incidence_matrix, marking, cost_vec, fin_vec):
-    """
-    Computes an exact heuristic using an LP based on the marking equation.
-
-    Parameters
-    ----------
-    :param sync_net: synchronous product net
-    :param incidence_matrix: incidence matrix
-    :param marking: marking to start from
-    :param cost_vec: cost vector
-    :param fin_vec: marking to reach
-
-    Returns
-    -------
-    :return: h: heuristic value, x: solution vector
-    """
-    m_vec = incidence_matrix.encode_marking(marking)
-    g_matrix = matrix(-np.eye(len(sync_net.transitions)))
-    h_cvx = matrix(np.zeros(len(sync_net.transitions)))
-    a_matrix = matrix(incidence_matrix.a_matrix, tc='d')
-    h_obj = solvers.lp(matrix(cost_vec, tc='d'), g_matrix, h_cvx, a_matrix.trans(),
-                       matrix([i - j for i, j in zip(fin_vec, m_vec)], tc='d'), solver='glpk',
-                       options={'glpk': {'msg_lev': 'GLP_MSG_OFF'}})
-    h = h_obj['primal objective']
-    return h, [xi for xi in h_obj['x']]
-
-
 def __get_tuple_from_queue(marking, queue):
     for t in queue:
         if t.m == marking:
             return t
     return None
-
-
-def __vectorize_initial_final_cost(incidence_matrix, ini, fin, cost_function):
-    ini_vec = incidence_matrix.encode_marking(ini)
-    fini_vec = incidence_matrix.encode_marking(fin)
-    cost_vec = [0] * len(cost_function)
-    for t in cost_function.keys():
-        cost_vec[incidence_matrix.transitions[t]] = cost_function[t]
-    return ini_vec, fini_vec, cost_vec
 
 
 class SearchTuple:

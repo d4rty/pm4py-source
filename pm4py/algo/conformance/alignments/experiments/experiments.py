@@ -2,6 +2,8 @@ import datetime
 import os
 import pickle
 from datetime import date
+
+from pm4py.algo.conformance.alignments.experiments.get_search_space_size_info import plot_search_space_size
 from pm4py.objects.log.importer.xes import factory as xes_importer
 from pm4py.objects import petri
 from pm4py.algo.conformance.alignments.incremental_a_star.incremental_a_star import \
@@ -51,7 +53,7 @@ def calculate_prefix_alignments(petri_net_filename, log, path_to_files, trace_in
         print("calculate_prefix_alignment_online_conformance_by_bas - window size 2")
         res6 = calculate_prefix_alignment_online_conformance_by_bas(log[i], net, im, fm, window_size=2)
 
-        print("calculate_prefix_alignment_online_conformance_by_bas - window size 2")
+        print("calculate_prefix_alignment_online_conformance_by_bas - window size 3")
         res7 = calculate_prefix_alignment_online_conformance_by_bas(log[i], net, im, fm, window_size=3)
 
         results.append({'trace': log[i],
@@ -87,6 +89,7 @@ def calculate_prefix_alignments_from_scratch(trace, petri_net, initial_marking, 
     traversed_arcs_total = 0
     total_computation_time_total = 0
     heuristic_computation_time_total = 0
+    number_solved_lps_total = 0
 
     intermediate_results = []
     incremental_trace = Trace()
@@ -102,13 +105,15 @@ def calculate_prefix_alignments_from_scratch(trace, petri_net, initial_marking, 
                                'queued_states': res['queued_states'],
                                'traversed_arcs': res['traversed_arcs'],
                                'total_computation_time': res['total_computation_time'],
-                               'heuristic_computation_time': res['heuristic_computation_time']}
+                               'heuristic_computation_time': res['heuristic_computation_time'],
+                               'number_solved_lps': res['number_solved_lps']}
 
         visited_states_total += res['visited_states']
         queued_states_total += res['queued_states']
         traversed_arcs_total += res['traversed_arcs']
         total_computation_time_total += res['total_computation_time']
         heuristic_computation_time_total += res['heuristic_computation_time']
+        number_solved_lps_total += res['number_solved_lps']
 
         intermediate_results.append(intermediate_result)
     res['intermediate_results'] = intermediate_results
@@ -117,6 +122,7 @@ def calculate_prefix_alignments_from_scratch(trace, petri_net, initial_marking, 
     res['traversed_arcs'] = traversed_arcs_total
     res['total_computation_time'] = total_computation_time_total
     res['heuristic_computation_time'] = heuristic_computation_time_total
+    res['number_solved_lps'] = number_solved_lps_total
     return res
 
 
@@ -210,10 +216,17 @@ def execute_experiments_for_bpi_ch_2019():
     # calculate_prefix_alignments("petri_net_4.pnml", log, path_to_files, trace_indices)
     # calculate_prefix_alignments("petri_net_5.pnml", log, path_to_files, trace_indices)
 
-    lengths = []
-    for i in trace_indices:
-        lengths.append(len(log[i]))
-    plot_length_distribution(lengths, path_to_files)
+    # trace length distribution ########################################################################################
+    # lengths = []
+    # for i in trace_indices:
+    #     lengths.append(len(log[i]))
+    # plot_length_distribution(lengths, path_to_files)
+
+    # search space size per prefix length ##############################################################################
+    # petri_net_file_names = ["petri_net_1.pnml", "petri_net_2.pnml", "petri_net_3.pnml", "petri_net_4.pnml",
+    #                         "petri_net_5.pnml"]
+    # net_paths = [os.path.join(path_to_files, net) for net in petri_net_file_names]
+    # plot_search_space_size(log, trace_indices, net_paths)
 
 
 def execute_experiments_for_bpi_ch_2018():
@@ -258,4 +271,4 @@ def execute_experiments_for_bpi_ch_2018():
 
 
 if __name__ == '__main__':
-    execute_experiments_for_bpi_ch_2018()
+    execute_experiments_for_bpi_ch_2019()

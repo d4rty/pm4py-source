@@ -56,7 +56,7 @@ def generate_simple_bar_plot(traversed_arcs, description, path_to_store="", svg=
     ind = range(len(traversed_arcs))  # the x locations for the groups
     width = 0.35  # the width of the bars: can also be len(x) sequence
 
-    p1 = plt.bar(ind, traversed_arcs, width, color=(0.1, 0.1, 0.1))
+    plt.bar(ind, traversed_arcs, width, color=(0.1, 0.1, 0.1))
 
     plt.ylabel('average traversed arcs per trace', fontsize=12)
     # plt.title('Time to compute prefix-alignments for 100 traces', fontsize=12)
@@ -66,6 +66,8 @@ def generate_simple_bar_plot(traversed_arcs, description, path_to_store="", svg=
                     'variant h'))
     else:
         plt.xticks(ind, description)
+
+
 
     if path_to_store:
         if svg:
@@ -97,19 +99,33 @@ def plot_length_distribution(lengths, path_to_store):
         print(i, " ", lengths.count(i))
 
 
-def plot_trace_length_in_comparison_with_measure():
-    t = [1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    s = [1, 2, 5, 3.5, 4, 5, 6, 7, 8, 9, 10]
-    s2 = [1, 2, 2, 1, 5, 5, 2, 7, 8, 9, 10]
-    s3 = [1, 2, 5, 3, 5, 5, 2, 7, 8, 9, 12]
+def plot_search_space_size_depending_on_prefix_length(keys, keys_to_label, data, attribute, path_to_store="",
+                                                      svg=False):
+    # t = [1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    # s = [1, 2, 5, 3.5, 4, 5, 6, 7, 8, 9, 10]
+    # s2 = [1, 2, 2, 1, 5, 5, 2, 7, 8, 9, 10]
+    # s3 = [1, 2, 5, 3, 5, 5, 2, 7, 8, 9, 19]
+    #
+    # plt.plot(t, s, marker='o',linestyle='dashed', label="$a_1$")
+    # plt.plot(t, s2,  marker='o',linestyle='dashed', label="b")
+    # plt.plot(t, s3, marker='o',linestyle='dashed', label="b")
 
-    plt.plot(t, s)
-    plt.plot(t, s2)
-    plt.plot(t, s3)
-
+    figure(num=None, figsize=(10, 6))
+    for key in keys:
+        if key in data:
+            plt.plot(data[key], marker='o', linestyle='dashed', label=keys_to_label[key])
     plt.xlabel("prefix length", fontsize=12)
-    plt.ylabel("traversed arcs", fontsize=12)
-    plt.show()
+    plt.ylabel("cumulated number of " + attribute.replace('_', ' '), fontsize=12)
+    plt.legend(loc='upper left')
+    if path_to_store:
+        if svg:
+            plt.savefig(path_to_store + ".svg", bbox_inches='tight')
+        else:
+            plt.savefig(path_to_store + ".png", bbox_inches='tight')
+    else:
+        plt.show()
+    plt.clf()
+    plt.close()
 
 
 if __name__ == '__main__':
@@ -119,5 +135,5 @@ if __name__ == '__main__':
         4.312514305114746, 6.859708309173584)
     b = (0, 62.672616720199585, 0, 137.3296763896942, 71.92269444465637, 2.5155222415924072, 3.9844913482666016,
          4.968816757202148)
-    plot_time_per_algorithm(a, b, None)
-    # plot_trace_length_in_comparison_with_measure()
+    # plot_time_per_algorithm(a, b, None)
+    plot_search_space_size_depending_on_prefix_length()

@@ -152,6 +152,7 @@ def apply_sync_prod(sync_prod, initial_marking, final_marking, cost_function, sk
 
 def __search(sync_net, ini, fin, cost_function, skip):
     print("__search(...)")
+    number_solved_lps = 0
     start_time = time.time()
     heuristic_time = 0
     incidence_matrix = petri.incidence_matrix.construct(sync_net)
@@ -161,6 +162,7 @@ def __search(sync_net, ini, fin, cost_function, skip):
 
     start_heuristic_time = time.time()
     h, x = __compute_exact_heuristic(sync_net, incidence_matrix, ini, cost_vec, fin_vec)
+    number_solved_lps += 1
     heuristic_time = heuristic_time + time.time() - start_heuristic_time
 
     ini_state = SearchTuple(0 + h, 0, h, ini, None, None, x, True)
@@ -171,9 +173,9 @@ def __search(sync_net, ini, fin, cost_function, skip):
     while not len(open_set) == 0:
         curr = heapq.heappop(open_set)
         if not curr.trust:
-
             start_heuristic_time = time.time()
             h, x = __compute_exact_heuristic(sync_net, incidence_matrix, curr.m, cost_vec, fin_vec)
+            number_solved_lps += 1
             heuristic_time = heuristic_time + time.time() - start_heuristic_time
 
             tp = SearchTuple(curr.g + h, curr.g, h, curr.m, curr.p, curr.t, x, __trust_solution(x))
@@ -185,7 +187,8 @@ def __search(sync_net, ini, fin, cost_function, skip):
         current_marking = curr.m
         closed_set.add(current_marking)
         if current_marking == fin:
-            return __reconstruct_alignment(curr, visited, queued, traversed, time.time() - start_time, heuristic_time)
+            return __reconstruct_alignment(curr, visited, queued, traversed,
+                                           time.time() - start_time, heuristic_time, number_solved_lps)
 
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
             if curr.t is not None and __is_log_move(curr.t, skip) and __is_model_move(t, skip):
@@ -350,7 +353,7 @@ def __search_for_all_optimal_paths(sync_net, ini, fin, cost_function, skip):
 
 
 def __reconstruct_alignment(state, visited, queued, traversed, total_computation_time=0,
-                            heuristic_computation_time=0):
+                            heuristic_computation_time=0, number_solved_lps=0):
     # state is a SearchTuple
     parent = state.p
     alignment = [{"marking_before_transition": state.p.m,
@@ -365,7 +368,8 @@ def __reconstruct_alignment(state, visited, queued, traversed, total_computation
         parent = parent.p
     return {'alignment': alignment, 'cost': state.g, 'visited_states': visited, 'queued_states': queued,
             'traversed_arcs': traversed, 'total_computation_time': total_computation_time,
-            'heuristic_computation_time': heuristic_computation_time}
+            'heuristic_computation_time': heuristic_computation_time,
+            'number_solved_lps': number_solved_lps}
 
 
 def __reconstruct_all_optimal_alignments(state, visited, queued, traversed):
