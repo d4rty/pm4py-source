@@ -31,7 +31,7 @@ def start_bpi_2019():
         'A* no\nheuristic',
         'A* with\nheuristic',
         'incremental\nA* no\n heuristic',
-        'Incremental\nA* with\nheuristic',
+        'incremental\nA* with\nheuristic',
         'online\nconformance\nno window size',
         'online\nconformance\nwindow size: 1',
         'online\nconformance\nwindow size: 2',
@@ -67,31 +67,35 @@ def start_bpi_2019():
         with open(pickle_path, 'rb') as handle:
             results = pickle.load(handle)
 
-        for trace in results:
-            cost = None
-            for key in algo_result_keys[:5]:
-                if cost:
-                    if not int(trace[key]['cost']/1000) == cost:
-                        print("Error")
-                else:
-                    cost = int(trace[key]['cost']/1000)
+        # just to check if costs are the same #########################################################################
+        # for trace in results:
+        #     cost = None
+        #     for key in algo_result_keys[:5]:
+        #         if cost:
+        #             if not int(trace[key]['cost']/1000) == cost:
+        #                 print("Error")
+        #         else:
+        #             cost = int(trace[key]['cost']/1000)
 
+        plot_time_bar_chart(algo_result_keys, results, path_to_files, res_file, description_algos)
+        bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, description_algos, 'traversed_arcs')
+        bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, description_algos, 'visited_states')
+        bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, description_algos, 'queued_states')
 
-        # plot_time_bar_chart(algo_result_keys, results, path_to_files, res_file, description_algos)
-        # bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, description_algos, 'traversed_arcs')
-        # bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, description_algos, 'visited_states')
-        # bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, description_algos, 'queued_states')
+        # remove line breaks
+        for k in algo_result_keys_to_description_string:
+            algo_result_keys_to_description_string[k] = algo_result_keys_to_description_string[k].replace("\n", " ")
 
-        # for attr in measured_attributes:
-        #     store_plot_path = os.path.join(path_to_files, attr + '_given_prefix_length' + res_file)
-        #     res = get_attribute_per_prefix_length(algo_result_keys, results, description_algos, attr)
-        #     plot_search_space_size_depending_on_prefix_length(algo_result_keys, algo_result_keys_to_description_string,
-        #                                                       res, attr, path_to_store=store_plot_path, svg=False)
-        #     del res['a_star_from_scratch_without_heuristic']
-        #     del res['incremental_a_star_without_heuristic']
-        #     store_plot_path = os.path.join(path_to_files, attr + '_given_prefix_length_SUBSET' + res_file)
-        #     plot_search_space_size_depending_on_prefix_length(algo_result_keys, algo_result_keys_to_description_string,
-        #                                                       res, attr, path_to_store=store_plot_path, svg=False)
+        for attr in measured_attributes:
+            store_plot_path = os.path.join(path_to_files, res_file + '_' + attr + '_given_prefix_length')
+            res = get_attribute_per_prefix_length(algo_result_keys, results, description_algos, attr)
+            plot_search_space_size_depending_on_prefix_length(algo_result_keys, algo_result_keys_to_description_string,
+                                                              res, attr, path_to_store=store_plot_path, svg=False)
+            del res['a_star_from_scratch_without_heuristic']
+            del res['incremental_a_star_without_heuristic']
+            store_plot_path = os.path.join(path_to_files, res_file + '_' + attr + '_given_prefix_length_SUBSET')
+            plot_search_space_size_depending_on_prefix_length(algo_result_keys, algo_result_keys_to_description_string,
+                                                              res, attr, path_to_store=store_plot_path, svg=False)
 
 
 def plot_time_bar_chart(algo_result_keys, results, path_to_files, res_file, description_algos):
@@ -137,7 +141,7 @@ def bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, d
 
     print("plot " + attribute + " for all algorithm variants")
     # time plot for all algorithm variants
-    filename = os.path.join(path_to_files, attribute + '_' + res_file)
+    filename = os.path.join(path_to_files, res_file + '_' + attribute)
     generate_simple_bar_plot(tuple(res), tuple(description_algos), filename, svg=False)
 
     print("plot " + attribute + " for a subset of the algorithm variants")
@@ -148,7 +152,7 @@ def bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, d
 
     description_algos_subset = [description_algos[i - 1] for i in subset_variants]
 
-    filename = os.path.join(path_to_files, attribute + '_subset_' + res_file)
+    filename = os.path.join(path_to_files, res_file + '_' + attribute + '_subset')
     generate_simple_bar_plot(tuple(res), tuple(description_algos_subset), filename, svg=False)
 
 

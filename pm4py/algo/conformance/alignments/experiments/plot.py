@@ -39,9 +39,9 @@ def plot_time_per_algorithm(time_a_star_computation_without_heuristic, time_heur
                fontsize=12)
     if path_to_store:
         if svg:
-            plt.savefig(path_to_store + ".svg", bbox_inches='tight')
+            plt.savefig(path_to_store + ".svg")
         else:
-            plt.savefig(path_to_store + ".png", bbox_inches='tight')
+            plt.savefig(path_to_store + ".png")
     else:
         plt.show()
     plt.clf()
@@ -67,13 +67,11 @@ def generate_simple_bar_plot(traversed_arcs, description, path_to_store="", svg=
     else:
         plt.xticks(ind, description)
 
-
-
     if path_to_store:
         if svg:
-            plt.savefig(path_to_store + ".svg", bbox_inches='tight')
+            plt.savefig(path_to_store + ".svg")
         else:
-            plt.savefig(path_to_store + ".png", bbox_inches='tight')
+            plt.savefig(path_to_store + ".png")
     else:
         plt.show()
     plt.clf()
@@ -93,7 +91,7 @@ def plot_length_distribution(lengths, path_to_store):
     plt.xlabel("trace length", fontsize=12)
     plt.ylabel("frequency", fontsize=12)
     path = os.path.join(path_to_store, "length_distribution_plot.svg")
-    plt.savefig(path, bbox_inches='tight')
+    plt.savefig(path)
     plt.close()
     for i in range(1, 11):
         print(i, " ", lengths.count(i))
@@ -110,18 +108,19 @@ def plot_search_space_size_depending_on_prefix_length(keys, keys_to_label, data,
     # plt.plot(t, s2,  marker='o',linestyle='dashed', label="b")
     # plt.plot(t, s3, marker='o',linestyle='dashed', label="b")
 
-    figure(num=None, figsize=(10, 6))
+    figure(num=None, figsize=(8, 5))
     for key in keys:
         if key in data:
-            plt.plot(data[key], marker='o', linestyle='dashed', label=keys_to_label[key])
+            plt.plot(range(1, len(data[key]) + 1), data[key], marker='o', linestyle='dashed', label=keys_to_label[key])
     plt.xlabel("prefix length", fontsize=12)
     plt.ylabel("cumulated number of " + attribute.replace('_', ' '), fontsize=12)
+    plt.xticks([i + 1 for i in range(len(data[key]))])
     plt.legend(loc='upper left')
     if path_to_store:
         if svg:
-            plt.savefig(path_to_store + ".svg", bbox_inches='tight')
+            plt.savefig(path_to_store + ".svg")
         else:
-            plt.savefig(path_to_store + ".png", bbox_inches='tight')
+            plt.savefig(path_to_store + ".png")
     else:
         plt.show()
     plt.clf()
