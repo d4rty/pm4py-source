@@ -2,6 +2,7 @@ import datetime
 import os
 import pickle
 from datetime import date
+from multiprocessing import Process
 
 from pm4py.algo.conformance.alignments.experiments.get_search_space_size_info import plot_search_space_size
 from pm4py.objects.log.importer.xes import factory as xes_importer
@@ -209,6 +210,17 @@ def execute_experiments_for_bpi_ch_2019():
                      174786, 174541, 193458, 216456, 75885, 27423, 182877, 248427, 122730, 43213, 203694, 141650,
                      124713, 243940, 116283, 221914, 246544, 63639, 223875, 240937, 84138, 97163, 55977, 23651, 85792,
                      87578, 126468, 151616, 146372, 219597, 222486, 161946, 108353, 246970, 232496, 221165, 225121]
+
+    petri_nets = ["petri_net_1.pnml", "petri_net_2.pnml", "petri_net_3.pnml", "petri_net_4.pnml", "petri_net_5.pnml"]
+    processes = []
+    for net in petri_nets:
+        processes.append(
+            Process(target=calculate_prefix_alignments, args=(net, log, path_to_files, trace_indices)))
+    for process in processes:
+        process.start()
+    for process in processes:
+        process.join()
+    print("Done")
 
     # calculate_prefix_alignments("petri_net_1.pnml", log, path_to_files, trace_indices)
     # calculate_prefix_alignments("petri_net_2.pnml", log, path_to_files, trace_indices)
