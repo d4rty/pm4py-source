@@ -33,19 +33,19 @@ def calculate_prefix_alignments(petri_net_filename, log, path_to_files, trace_in
         print(log[i])
 
         print("calculate_prefix_alignments_dijkstra_from_scratch")
-        res0 = None
+        res0 = calculate_prefix_alignments_from_scratch(log[i], net, im, fm, dijkstra=True)
 
         print("calculate_prefix_alignments_from_scratch_with_heuristic")
-        res1 = None
+        res1 = calculate_prefix_alignments_from_scratch(log[i], net, im, fm, dijkstra=False)
 
         print("calculate_prefix_alignment_modified_a_star_dijkstra")
-        res2 = None
+        res2 = calculate_prefix_alignment_modified_a_star_dijkstra(log[i], net, im, fm)
 
         print("calculate_prefix_alignment_modified_a_star_with_heuristic")
-        res3 = None
+        res3 = calculate_prefix_alignment_modified_a_star_with_heuristic(log[i], net, im, fm)
 
         print("calculate_prefix_alignment_online_conformance_by_bas")
-        res4 = None
+        res4 = calculate_prefix_alignment_online_conformance_by_bas(log[i], net, im, fm)
 
         print("calculate_prefix_alignment_online_conformance_by_bas - window size 1")
         res5 = calculate_prefix_alignment_online_conformance_by_bas(log[i], net, im, fm, window_size=1)
@@ -209,9 +209,8 @@ def execute_experiments_for_bpi_ch_2019():
                      174786, 174541, 193458, 216456, 75885, 27423, 182877, 248427, 122730, 43213, 203694, 141650,
                      124713, 243940, 116283, 221914, 246544, 63639, 223875, 240937, 84138, 97163, 55977, 23651, 85792,
                      87578, 126468, 151616, 146372, 219597, 222486, 161946, 108353, 246970, 232496, 221165, 225121]
-    trace_indices = [133799]
 
-    calculate_prefix_alignments("petri_net_1.pnml", log, path_to_files, trace_indices)
+    # calculate_prefix_alignments("petri_net_1.pnml", log, path_to_files, trace_indices)
     # calculate_prefix_alignments("petri_net_2.pnml", log, path_to_files, trace_indices)
     # calculate_prefix_alignments("petri_net_3.pnml", log, path_to_files, trace_indices)
     # calculate_prefix_alignments("petri_net_4.pnml", log, path_to_files, trace_indices)
