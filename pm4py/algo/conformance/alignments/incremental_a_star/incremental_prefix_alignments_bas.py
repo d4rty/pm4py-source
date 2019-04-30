@@ -1,6 +1,7 @@
 import heapq
 import time
 
+import math
 import numpy as np
 from cvxopt import matrix, solvers
 
@@ -17,9 +18,11 @@ from pm4py.algo.conformance.alignments.most_probable_alignments.miscellaneous_ut
     place_from_synchronous_product_net_belongs_to_trace_net_part
 from pm4py.algo.conformance.alignments.versions.state_equation_a_star import SearchTuple
 from pm4py.objects.petri.semantics import enabled_transitions
+from pm4py.visualization.petrinet import factory as petri_net_visualization_factory
 
 
 def apply(trace, petri_net, initial_marking, final_marking, window_size=0, parameters=None, debug_print=False):
+    debug_print = True
     start_time = time.time()
     activity_key = DEFAULT_NAME_KEY if parameters is None or PARAMETER_CONSTANT_ACTIVITY_KEY not in parameters else \
         parameters[
@@ -62,9 +65,9 @@ def apply(trace, petri_net, initial_marking, final_marking, window_size=0, param
                                                                                                        activity_key)
         if debug_print:
             pass
-            gviz = pn_vis_factory.apply(sync_prod, sync_im, sync_fm,
-                                        parameters={"debug": True, "format": "svg"})
-            pn_vis_factory.view(gviz)
+            # gviz = pn_vis_factory.apply(sync_prod, sync_im, sync_fm,
+            #                             parameters={"debug": True, "format": "svg"})
+            # pn_vis_factory.view(gviz)
 
         cost_function = alignments.utils.construct_standard_cost_function(sync_prod, SKIP)
         if not current_marking:
@@ -121,12 +124,19 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
         if len(prefix_alignment) > 0:
             marking_after_prefix_alignment = prefix_alignment[-1]["marking_after_transition"]
             cost_so_far = prefix_alignment[-1]['cost_so_far']
+            upper_limit_for_search = prefix_alignment['cost_so_far'] + 1999
+            # cost for log move = 1000 plus 999 to allow to execute 999 times arbitrary silent transitions
         else:
             marking_after_prefix_alignment = initial_marking
             cost_so_far = 0
+            upper_limit_for_search = 1999
         if debug_print:
             print("START FROM SCRATCH -> A*")
-        res = __search(sync_net, marking_after_prefix_alignment, final_marking, cost_function, skip, cost_so_far)
+            gviz = petri_net_visualization_factory.apply(sync_net, marking_after_prefix_alignment, final_marking,
+                                                         parameters={'debug': True, "format": "svg"})
+            petri_net_visualization_factory.view(gviz)
+        res = __search(sync_net, marking_after_prefix_alignment, final_marking, cost_function, skip, cost_so_far,
+                       upper_limit_for_search=upper_limit_for_search)
         return {'alignment': prefix_alignment + res['alignment'],
                 'cost': res['cost'] + cost_so_far,
                 'visited_states': res['visited_states'],
@@ -138,8 +148,10 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
 
     if len(prefix_alignment) > 0:
         cost_so_far = prefix_alignment[-1]['cost_so_far']
+        upper_limit_for_search = prefix_alignment['cost_so_far'] + 1999
     else:
         cost_so_far = 0
+        upper_limit_for_search = math.inf
 
     # check if there is a model move/ synchronous move transition that is labelled equally to event_to_align
     for t in process_net.transitions:
@@ -168,7 +180,7 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                     # first step in alignment
                     cost_prefix_alignment = cost_of_synchronous_move
                     # add sync move to alignment
-                prefix_alignment = prefix_alignment + [{"marking_before_transition": initial_marking,
+                prefix_alignment = prefix_alignment + [{"marking_before_transition": marking_after_prefix_alignment,
                                                         "label": synchronous_move_transition.label,
                                                         "name": synchronous_move_transition.name,
                                                         "cost_so_far": cost_so_far + cost_function[
@@ -186,7 +198,8 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                 # USE A* TO FIND NEW OPTIMAL ALIGNMENT
                 if debug_print:
                     print("START FROM SCRATCH -> A*")
-                res = __search(sync_net, initial_marking, final_marking, cost_function, skip, cost_so_far)
+                res = __search(sync_net, initial_marking, final_marking, cost_function, skip, cost_so_far,
+                               upper_limit_for_search=upper_limit_for_search)
                 return {'alignment': res['alignment'],
                         'cost': res['cost'],
                         'visited_states': res['visited_states'],
@@ -199,11 +212,11 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
     if debug_print:
         print("ADD LOG MOVE")
     for t in sync_net.transitions:
-        if is_log_move(t, skip) and t.label[0] == activity_name and petri.semantics.is_enabled(t, sync_net,
-                                                                                               marking_after_prefix_alignment):
+        if is_log_move(t, skip) and t.label[0] == activity_name and \
+                petri.semantics.is_enabled(t, sync_net, marking_after_prefix_alignment):
             new_marking = petri.semantics.execute(t, sync_net, marking_after_prefix_alignment)
             # TODO get rid off static cost for log move
-            prefix_alignment = prefix_alignment + [{"marking_before_transition": initial_marking,
+            prefix_alignment = prefix_alignment + [{"marking_before_transition": marking_after_prefix_alignment,
                                                     "label": t.label,
                                                     "name": t.name,
                                                     "cost_so_far": 1000 + cost_so_far,
@@ -219,9 +232,9 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
     raise Exception('No corresponding log move transition found in sync net')
 
 
-def __search(sync_net, start_marking, final_marking, cost_function, skip, cost_to_reach_start_marking):
+def __search(sync_net, start_marking, final_marking, cost_function, skip, cost_to_reach_start_marking,
+             upper_limit_for_search=math.inf):
     number_solved_lps = 0
-
     start_time = time.time()
     heuristic_time = 0
 
@@ -249,8 +262,10 @@ def __search(sync_net, start_marking, final_marking, cost_function, skip, cost_t
                     if place_from_synchronous_product_net_belongs_to_trace_net_part(place2):
                         if place.name == place2.name:
                             # found a final marking of the trace net
-                            return __reconstruct_alignment(curr, visited, queued, traversed, time.time() - start_time,
-                                                           heuristic_time, number_solved_lps)
+                            return __reconstruct_alignment(curr, visited, queued,
+                                                           traversed, time.time() - start_time,
+                                                           heuristic_time, number_solved_lps,
+                                                           previous_cost=cost_to_reach_start_marking)
 
         for t in petri.semantics.enabled_transitions(sync_net, current_marking):
             if curr.t is not None and __is_log_move(curr.t, skip) and __is_model_move(t, skip):
@@ -260,7 +275,7 @@ def __search(sync_net, start_marking, final_marking, cost_function, skip, cost_t
             if new_marking in closed_set:
                 continue
             g = curr.g + cost_function[t]
-            if g > cost_to_reach_start_marking + 1999:  # add max costs of a log move
+            if g > upper_limit_for_search:  # add max costs of a log move
                 continue
             # enum is a tuple (int, SearchTuple), alt is a SearchTuple
             alt = next((enum[1] for enum in enumerate(open_set) if enum[1].m == new_marking), None)
@@ -284,22 +299,22 @@ def __search(sync_net, start_marking, final_marking, cost_function, skip, cost_t
 
 # TODO remove methods and import methods from state_equation_a_start.py
 def __reconstruct_alignment(state, visited, queued, traversed, total_computation_time,
-                            heuristic_computation_time, number_solved_lps):
+                            heuristic_computation_time, number_solved_lps, previous_cost=0):
     # state is a SearchTuple
     parent = state.p
     alignment = [{"marking_before_transition": state.p.m,
                   "label": state.t.label,
                   "name": state.t.name,
-                  "cost_so_far": state.g,
+                  "cost_so_far": state.g + previous_cost,
                   "marking_after_transition": state.m}]
     while parent.p is not None:
         alignment = [{"marking_before_transition": parent.p.m,
                       "label": parent.t.label,
                       "name": parent.t.name,
-                      "cost_so_far": parent.g,
+                      "cost_so_far": parent.g + previous_cost,
                       "marking_after_transition": parent.m}] + alignment
         parent = parent.p
-    return {'alignment': alignment, 'cost': state.g, 'visited_states': visited, 'queued_states': queued,
+    return {'alignment': alignment, 'cost': state.g + previous_cost, 'visited_states': visited, 'queued_states': queued,
             'traversed_arcs': traversed, 'total_computation_time': total_computation_time,
             'heuristic_computation_time': heuristic_computation_time,
             'number_solved_lps': number_solved_lps}

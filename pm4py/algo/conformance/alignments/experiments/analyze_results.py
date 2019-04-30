@@ -24,7 +24,7 @@ def start_bpi_2019():
         'online_conformance_window_0',
         'online_conformance_window_1',
         'online_conformance_window_2',
-        'online_conformance_window_3',
+        'online_conformance_window_5',
     ]
 
     description_algos = [
@@ -35,7 +35,7 @@ def start_bpi_2019():
         'online\nconformance\nno window size',
         'online\nconformance\nwindow size: 1',
         'online\nconformance\nwindow size: 2',
-        'online\nconformance\nwindow size: 3',
+        'online\nconformance\nwindow size: 5',
     ]
 
     algo_result_keys_to_description_string = {
@@ -46,7 +46,7 @@ def start_bpi_2019():
         'online_conformance_window_0': 'online\nconformance\nno window size',
         'online_conformance_window_1': 'online\nconformance\nwindow size: 1',
         'online_conformance_window_2': 'online\nconformance\nwindow size: 2',
-        'online_conformance_window_3': 'online\nconformance\nwindow size: 3',
+        'online_conformance_window_3': 'online\nconformance\nwindow size: 5',
     }
 
     path_to_files = os.path.join("C:\\", "Users", "Daniel", "Desktop", "master_thesis", "experiments",
@@ -142,7 +142,7 @@ def bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, d
     print("plot " + attribute + " for all algorithm variants")
     # time plot for all algorithm variants
     filename = os.path.join(path_to_files, res_file + '_' + attribute)
-    generate_simple_bar_plot(tuple(res), tuple(description_algos), filename, svg=False)
+    generate_simple_bar_plot(tuple(res), tuple(description_algos), filename, attribute, svg=False)
 
     print("plot " + attribute + " for a subset of the algorithm variants")
     # time plot for subset of algorithm variants
@@ -153,7 +153,7 @@ def bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, d
     description_algos_subset = [description_algos[i - 1] for i in subset_variants]
 
     filename = os.path.join(path_to_files, res_file + '_' + attribute + '_subset')
-    generate_simple_bar_plot(tuple(res), tuple(description_algos_subset), filename, svg=False)
+    generate_simple_bar_plot(tuple(res), tuple(description_algos_subset), filename, attribute, svg=False)
 
 
 def get_attribute_per_prefix_length(algo_result_keys, results, description_algos, attribute):

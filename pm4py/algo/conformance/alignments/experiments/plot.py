@@ -16,7 +16,7 @@ def plot_time_per_algorithm(time_a_star_computation_without_heuristic, time_heur
                             path_to_store="", svg=False):
     # time_a_star_computation_without_heuristic = (20, 35, 30, 35, 27, 34, 78, 78)
     # time_heuristic_computation = (25, 32, 34, 200, 25, 0, 0, 0)
-    figure(num=None, figsize=(len(description) * 1.5, 6))
+    figure(num=None, figsize=(len(description) * 1.5, 5))
 
     ind = range(len(time_a_star_computation_without_heuristic))  # the x locations for the groups
     width = 0.35  # the width of the bars: can also be len(x) sequence
@@ -48,25 +48,19 @@ def plot_time_per_algorithm(time_a_star_computation_without_heuristic, time_heur
     plt.close()
 
 
-def generate_simple_bar_plot(traversed_arcs, description, path_to_store="", svg=False):
+def generate_simple_bar_plot(traversed_arcs, description, path_to_store="", attribute="", svg=False):
     # time_a_star_computation_without_heuristic = (20, 35, 30, 35, 27, 34, 78, 78)
     # time_heuristic_computation = (25, 32, 34, 200, 25, 0, 0, 0)
-    figure(num=None, figsize=(len(description) * 1.5, 6))
+    figure(num=None, figsize=(len(description) * 1.5, 5))
 
     ind = range(len(traversed_arcs))  # the x locations for the groups
     width = 0.35  # the width of the bars: can also be len(x) sequence
 
     plt.bar(ind, traversed_arcs, width, color=(0.1, 0.1, 0.1))
 
-    plt.ylabel('average traversed arcs per trace', fontsize=12)
+    plt.ylabel('average ' + attribute.replace("_", " ") + ' per trace', fontsize=12)
     # plt.title('Time to compute prefix-alignments for 100 traces', fontsize=12)
-    if not description:
-        plt.xticks(ind,
-                   ('variant a', 'variant b', 'variant c', 'variant d', 'variant e', 'variant f', 'variant g',
-                    'variant h'))
-    else:
-        plt.xticks(ind, description)
-
+    plt.xticks(ind, description)
     if path_to_store:
         if svg:
             plt.savefig(path_to_store + ".svg")
