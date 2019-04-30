@@ -22,7 +22,6 @@ from pm4py.visualization.petrinet import factory as petri_net_visualization_fact
 
 
 def apply(trace, petri_net, initial_marking, final_marking, window_size=0, parameters=None, debug_print=False):
-    debug_print = True
     start_time = time.time()
     activity_key = DEFAULT_NAME_KEY if parameters is None or PARAMETER_CONSTANT_ACTIVITY_KEY not in parameters else \
         parameters[
@@ -120,12 +119,17 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
         print("Next Event: ", activity_name)
 
     if window_size > 0:
-        prefix_alignment = prefix_alignment[:-window_size]
         if len(prefix_alignment) > 0:
-            marking_after_prefix_alignment = prefix_alignment[-1]["marking_after_transition"]
-            cost_so_far = prefix_alignment[-1]['cost_so_far']
-            upper_limit_for_search = prefix_alignment['cost_so_far'] + 1999
-            # cost for log move = 1000 plus 999 to allow to execute 999 times arbitrary silent transitions
+            upper_limit_for_search = prefix_alignment[-1]['cost_so_far'] + 1999
+            # revert prefix alignment by window size
+            prefix_alignment_reverted = prefix_alignment[:-window_size]
+            if len(prefix_alignment_reverted) > 0:
+                marking_after_prefix_alignment = prefix_alignment_reverted[-1]["marking_after_transition"]
+                cost_so_far = prefix_alignment_reverted[-1]['cost_so_far']
+                # cost for log move = 1000 plus 999 to allow to execute 999 times arbitrary silent transitions
+            else:
+                marking_after_prefix_alignment = initial_marking
+                cost_so_far = 0
         else:
             marking_after_prefix_alignment = initial_marking
             cost_so_far = 0
@@ -148,7 +152,7 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
 
     if len(prefix_alignment) > 0:
         cost_so_far = prefix_alignment[-1]['cost_so_far']
-        upper_limit_for_search = prefix_alignment['cost_so_far'] + 1999
+        upper_limit_for_search = prefix_alignment[-1]['cost_so_far'] + 1999
     else:
         cost_so_far = 0
         upper_limit_for_search = math.inf
