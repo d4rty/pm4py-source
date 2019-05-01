@@ -63,7 +63,7 @@ def calculate_prefix_alignments(petri_net_filename, log, path_to_files, trace_in
                         'a_star_from_scratch_with_heuristic': res1,
                         'incremental_a_star_without_heuristic': res2,
                         'incremental_a_star_with_heuristic': res3,
-                        'online_conformance_window_0': res4,
+                        'online_conformance': res4,
                         'online_conformance_window_1': res5,
                         'online_conformance_window_2': res6,
                         'online_conformance_window_5': res7

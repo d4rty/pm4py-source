@@ -7,7 +7,8 @@ from cvxopt import matrix, solvers
 
 import pm4py
 from pm4py.algo.conformance import alignments
-from pm4py.algo.conformance.alignments.incremental_a_star.incremental_a_star import __compute_heuristic_regular_cost
+from pm4py.algo.conformance.alignments.incremental_a_star.incremental_a_star import __compute_heuristic_regular_cost, \
+    __derive_heuristic
 from pm4py.evaluation.replay_fitness.versions.alignment_based import DEFAULT_NAME_KEY
 from pm4py.objects import petri
 from pm4py.objects.log.log import Trace
@@ -142,7 +143,7 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
         res = __search(sync_net, marking_after_prefix_alignment, final_marking, cost_function, skip, cost_so_far,
                        upper_limit_for_search=upper_limit_for_search)
         return {'alignment': prefix_alignment + res['alignment'],
-                'cost': res['cost'] + cost_so_far,
+                'cost': res['cost'],
                 'visited_states': res['visited_states'],
                 'queued_states': res['queued_states'],
                 'traversed_arcs': res['traversed_arcs'],
@@ -322,15 +323,6 @@ def __reconstruct_alignment(state, visited, queued, traversed, total_computation
             'traversed_arcs': traversed, 'total_computation_time': total_computation_time,
             'heuristic_computation_time': heuristic_computation_time,
             'number_solved_lps': number_solved_lps}
-
-
-def __derive_heuristic(costs, transition, heuristic_value, res_vector):
-    if res_vector[transition] > 0:
-        new_res_vector = res_vector.copy()
-        new_res_vector[transition] -= 1
-        new_heuristic_value = heuristic_value - costs[transition]
-        return new_heuristic_value, new_res_vector
-    return None, None
 
 
 def __is_model_move(t, skip):

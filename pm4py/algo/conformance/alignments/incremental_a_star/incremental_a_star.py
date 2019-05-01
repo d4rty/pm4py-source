@@ -201,7 +201,7 @@ def __search(sync_net, initial_m, final_m, cost_function, skip, open_set_heap, c
                     h, x = __derive_heuristic(cost_function, t, curr.h, curr.x)
                 if not h or not derive_heuristic:
                     h, x, duration = __compute_heuristic_regular_cost(sync_net, new_marking, final_m, cost_function)
-
+                    number_solved_lps += 1
             duration_solving_lps += duration
 
             tp = SearchTuple(g + h, g, h, new_marking, curr, t, x, True)

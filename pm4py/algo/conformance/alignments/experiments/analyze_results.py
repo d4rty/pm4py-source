@@ -16,47 +16,50 @@ from pm4py.algo.conformance.alignments.experiments.plot import plot_length_distr
 
 
 def start_bpi_2019():
-    algo_result_keys = [
-        'a_star_from_scratch_without_heuristic',
-        'a_star_from_scratch_with_heuristic',
-        'incremental_a_star_without_heuristic',
-        'incremental_a_star_with_heuristic',
-        'online_conformance_window_0',
-        'online_conformance_window_1',
-        'online_conformance_window_2',
-        'online_conformance_window_5',
-    ]
-
-    description_algos = [
-        'A* no\nheuristic',
-        'A* with\nheuristic',
-        'incremental\nA* no\n heuristic',
-        'incremental\nA* with\nheuristic',
-        'online\nconformance\nno window size',
-        'online\nconformance\nwindow size: 1',
-        'online\nconformance\nwindow size: 2',
-        'online\nconformance\nwindow size: 5',
-    ]
+    # algo_result_keys = [
+    #     'a_star_from_scratch_without_heuristic',
+    #     'a_star_from_scratch_with_heuristic',
+    #     'incremental_a_star_without_heuristic',
+    #     'incremental_a_star_with_heuristic',
+    #     'online_conformance',
+    #     'online_conformance_window_1',
+    #     'online_conformance_window_2',
+    #     'online_conformance_window_5',
+    # ]
+    #
+    # description_algos = [
+    #     'A* no\nheuristic',
+    #     'A* with\nheuristic',
+    #     'incremental\nA* no\n heuristic',
+    #     'incremental\nA* with\nheuristic',
+    #     'online\nconformance\nno window size',
+    #     'online\nconformance\nwindow size: 1',
+    #     'online\nconformance\nwindow size: 2',
+    #     'online\nconformance\nwindow size: 5',
+    # ]
 
     algo_result_keys_to_description_string = {
         'a_star_from_scratch_without_heuristic': 'A* no\nheuristic',
         'a_star_from_scratch_with_heuristic': 'A* with\nheuristic',
         'incremental_a_star_without_heuristic': 'incremental\nA* no\n heuristic',
         'incremental_a_star_with_heuristic': 'incremental\nA* with\nheuristic',
-        'online_conformance_window_0': 'online\nconformance\nno window size',
+        'online_conformance': 'online\nconformance\nno window size',
         'online_conformance_window_1': 'online\nconformance\nwindow size: 1',
         'online_conformance_window_2': 'online\nconformance\nwindow size: 2',
-        'online_conformance_window_3': 'online\nconformance\nwindow size: 5',
+        'online_conformance_window_5': 'online\nconformance\nwindow size: 5',
     }
+
+    algo_result_keys = [k for k in algo_result_keys_to_description_string.keys()]
+    description_algos = [algo_result_keys_to_description_string[k] for k in algo_result_keys_to_description_string]
 
     path_to_files = os.path.join("C:\\", "Users", "Daniel", "Desktop", "master_thesis", "experiments",
                                  "results", 'bpi_ch_19')
     result_files = [
-        'RESULTS_petri_net_1.pnml_2019-04-27.pickle',
-        'RESULTS_petri_net_2.pnml_2019-04-27.pickle',
-        'RESULTS_petri_net_3.pnml_2019-04-27.pickle',
-        'RESULTS_petri_net_4.pnml_2019-04-27.pickle',
-        'RESULTS_petri_net_5.pnml_2019-04-27.pickle'
+        'RESULTS_petri_net_1.pnml_2019-05-01.pickle',
+        'RESULTS_petri_net_2.pnml_2019-05-01.pickle',
+        'RESULTS_petri_net_3.pnml_2019-04-30.pickle',
+        'RESULTS_petri_net_4.pnml_2019-04-30.pickle',
+        'RESULTS_petri_net_5.pnml_2019-04-30.pickle'
     ]
 
     measured_attributes = ['traversed_arcs', 'visited_states', 'queued_states', 'total_computation_time']
@@ -99,23 +102,28 @@ def start_bpi_2019():
 
 
 def plot_time_bar_chart(algo_result_keys, results, path_to_files, res_file, description_algos):
+    number_traces = len(results)
     a_star_computation_time_without_heuristic = [0] * len(algo_result_keys)
     computation_time_heuristic = [0] * len(algo_result_keys)
+    number_solved_lps = [0] * len(algo_result_keys)
     for trace in results:
         for i, algo_variant in enumerate(algo_result_keys):
             time_without_heuristic = trace[algo_variant]['total_computation_time'] - \
                                      trace[algo_variant]['heuristic_computation_time']
             a_star_computation_time_without_heuristic[i] += time_without_heuristic
             computation_time_heuristic[i] += trace[algo_variant]['heuristic_computation_time']
+            number_solved_lps[i] += trace[algo_variant]['number_solved_lps']
 
-    a_star_computation_time_without_heuristic = [0.01 * v for v in a_star_computation_time_without_heuristic]
-    computation_time_heuristic = [0.01 * v for v in computation_time_heuristic]
+    a_star_computation_time_without_heuristic = [(1 / number_traces) * v for v in
+                                                 a_star_computation_time_without_heuristic]
+    computation_time_heuristic = [(1 / number_traces) * v for v in computation_time_heuristic]
 
     print("plot time for all algorithm variants")
     # time plot for all algorithm variants
     filename = os.path.join(path_to_files, 'computation_time_all_' + res_file)
-    plot_time_per_algorithm(tuple(a_star_computation_time_without_heuristic), tuple(computation_time_heuristic),
-                            tuple(description_algos), filename, svg=False)
+    plot_time_per_algorithm(tuple(a_star_computation_time_without_heuristic),
+                            tuple(computation_time_heuristic),
+                            tuple(description_algos), number_solved_lps, path_to_store=filename, svg=False)
 
     print("plot time for subset of algorithm variants")
     # time plot for subset of algorithm variants
@@ -123,12 +131,13 @@ def plot_time_bar_chart(algo_result_keys, results, path_to_files, res_file, desc
     a_star_computation_time_without_heuristic = [a_star_computation_time_without_heuristic[i - 1] for i in
                                                  subset_variants]
     computation_time_heuristic = [computation_time_heuristic[i - 1] for i in subset_variants]
+    number_solved_lps = [number_solved_lps[i - 1] for i in subset_variants]
     description_algos_subset = [description_algos[i - 1] for i in subset_variants]
 
     filename = os.path.join(path_to_files, 'computation_time_subset_' + res_file)
     plot_time_per_algorithm(tuple(a_star_computation_time_without_heuristic),
                             tuple(computation_time_heuristic),
-                            tuple(description_algos_subset), filename, svg=False)
+                            tuple(description_algos_subset), number_solved_lps, path_to_store=filename, svg=False)
 
 
 def bar_plot_miscellaneous(algo_result_keys, results, path_to_files, res_file, description_algos, attribute):
@@ -163,10 +172,9 @@ def get_attribute_per_prefix_length(algo_result_keys, results, description_algos
         res[algorithm] = []
 
         for trace in results:
-
             for i, intermediate_result in enumerate(trace[algorithm]["intermediate_results"]):
 
-                if i + 1 in number_prefix_lengths:
+                if (i + 1) in number_prefix_lengths:
                     number_prefix_lengths[i + 1] += 1
                 else:
                     number_prefix_lengths[i + 1] = 1
@@ -178,7 +186,7 @@ def get_attribute_per_prefix_length(algo_result_keys, results, description_algos
 
         # calculate cumulated numbers per prefix length
         for i in range(1, len(res[algorithm])):
-            res[algorithm][i] = res[algorithm][i] + res[algorithm][i - 1]
+            res[algorithm][i] += res[algorithm][i - 1]
 
         # calculate average
         # for i in range(len(res[algorithm])):

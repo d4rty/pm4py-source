@@ -10,33 +10,39 @@ plt.rc('text', usetex=True)
 plt.rc('font', family='serif')
 matplotlib.rc('xtick', labelsize=12)
 matplotlib.rc('ytick', labelsize=12)
+matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ','))
 
 
 def plot_time_per_algorithm(time_a_star_computation_without_heuristic, time_heuristic_computation, description,
+                            number_solved_lps,
                             path_to_store="", svg=False):
     # time_a_star_computation_without_heuristic = (20, 35, 30, 35, 27, 34, 78, 78)
     # time_heuristic_computation = (25, 32, 34, 200, 25, 0, 0, 0)
-    figure(num=None, figsize=(len(description) * 1.5, 5))
+    fig = figure(num=None, figsize=(len(description) * 1.5, 6))
 
     ind = range(len(time_a_star_computation_without_heuristic))  # the x locations for the groups
     width = 0.35  # the width of the bars: can also be len(x) sequence
 
-    p1 = plt.bar(ind, time_heuristic_computation, width, color=(0.6, 0.6, 0.6))
+    plt.grid(zorder=0, color=(.9, .9, .9))
+    p1 = plt.bar(ind, time_heuristic_computation, width, color=(0.6, 0.6, 0.6), zorder=3)
     p2 = plt.bar(ind, time_a_star_computation_without_heuristic, width, color=(0.1, 0.1, 0.1),
-                 bottom=time_heuristic_computation)
-
+                 bottom=time_heuristic_computation, zorder=3)
     plt.ylabel('average time per trace (seconds)', fontsize=12)
-    # plt.title('Time to compute prefix-alignments for 100 traces', fontsize=12)
-    if not description:
-        plt.xticks(ind,
-                   ('variant a', 'variant b', 'variant c', 'variant d', 'variant e', 'variant f', 'variant g',
-                    'variant h'))
-    else:
-        plt.xticks(ind, description)
+    plt.title('average number of solved LPs per trace', fontsize=12, color="blue")
 
+    plt.xticks(ind, description)
     plt.legend((p1[0], p2[0]),
                ('heuristic computation time', 'A* computation time\n(excluding heuristic computation time)'),
                fontsize=12)
+    if max(time_heuristic_computation) > 1000 or max(time_a_star_computation_without_heuristic) > 1000:
+        axes = fig.get_axes()
+        axes[-1].get_yaxis().set_major_formatter(
+            matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
+
+    for i in range(len(time_a_star_computation_without_heuristic)):
+        y = time_heuristic_computation[i] + time_a_star_computation_without_heuristic[i]
+        plt.text(x=i, y=y, s=number_solved_lps[i], size=11, color="blue", horizontalalignment='center')
+
     if path_to_store:
         if svg:
             plt.savefig(path_to_store + ".svg")
@@ -48,19 +54,22 @@ def plot_time_per_algorithm(time_a_star_computation_without_heuristic, time_heur
     plt.close()
 
 
-def generate_simple_bar_plot(traversed_arcs, description, path_to_store="", attribute="", svg=False):
+def generate_simple_bar_plot(y_values, description, path_to_store="", attribute="", svg=False):
     # time_a_star_computation_without_heuristic = (20, 35, 30, 35, 27, 34, 78, 78)
     # time_heuristic_computation = (25, 32, 34, 200, 25, 0, 0, 0)
-    figure(num=None, figsize=(len(description) * 1.5, 5))
+    fig = figure(num=None, figsize=(len(description) * 1.5, 6))
 
-    ind = range(len(traversed_arcs))  # the x locations for the groups
-    width = 0.35  # the width of the bars: can also be len(x) sequence
+    ind = range(len(y_values))  # the x locations for the groups
+    width = .5  # the width of the bars: can also be len(x) sequence
 
-    plt.bar(ind, traversed_arcs, width, color=(0.1, 0.1, 0.1))
-
+    plt.bar(ind, y_values, width, color=(0.1, 0.1, 0.1), zorder=2)
+    plt.grid(zorder=0, color=(.9, .9, .9))
     plt.ylabel('average ' + attribute.replace("_", " ") + ' per trace', fontsize=12)
     # plt.title('Time to compute prefix-alignments for 100 traces', fontsize=12)
     plt.xticks(ind, description)
+    axes = fig.get_axes()
+    axes[-1].get_yaxis().set_major_formatter(
+        matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
     if path_to_store:
         if svg:
             plt.savefig(path_to_store + ".svg")
@@ -102,14 +111,19 @@ def plot_search_space_size_depending_on_prefix_length(keys, keys_to_label, data,
     # plt.plot(t, s2,  marker='o',linestyle='dashed', label="b")
     # plt.plot(t, s3, marker='o',linestyle='dashed', label="b")
 
-    figure(num=None, figsize=(8, 5))
+    fig = figure(num=None, figsize=(9, 5))
     for key in keys:
         if key in data:
-            plt.plot(range(1, len(data[key]) + 1), data[key], marker='o', linestyle='dashed', label=keys_to_label[key])
+            plt.plot(range(1, len(data[key]) + 1), data[key], marker='o', linestyle='dashed', label=keys_to_label[key],
+                     zorder=3)
     plt.xlabel("prefix length", fontsize=12)
     plt.ylabel("cumulated number of " + attribute.replace('_', ' '), fontsize=12)
     plt.xticks([i + 1 for i in range(len(data[key]))])
     plt.legend(loc='upper left')
+    plt.grid(zorder=0, color=(.9, .9, .9))
+    axes = fig.get_axes()
+    axes[-1].get_yaxis().set_major_formatter(
+        matplotlib.ticker.FuncFormatter(lambda x, p: format(int(x), ',')))
     if path_to_store:
         if svg:
             plt.savefig(path_to_store + ".svg")

@@ -163,7 +163,7 @@ def __search(sync_net, ini, fin, cost_function, skip):
     start_heuristic_time = time.time()
     h, x = __compute_exact_heuristic(sync_net, incidence_matrix, ini, cost_vec, fin_vec)
     number_solved_lps += 1
-    heuristic_time = heuristic_time + time.time() - start_heuristic_time
+    heuristic_time += time.time() - start_heuristic_time
 
     ini_state = SearchTuple(0 + h, 0, h, ini, None, None, x, True)
     open_set = [ini_state]  # visited markings
@@ -176,7 +176,7 @@ def __search(sync_net, ini, fin, cost_function, skip):
             start_heuristic_time = time.time()
             h, x = __compute_exact_heuristic(sync_net, incidence_matrix, curr.m, cost_vec, fin_vec)
             number_solved_lps += 1
-            heuristic_time = heuristic_time + time.time() - start_heuristic_time
+            heuristic_time += time.time() - start_heuristic_time
 
             tp = SearchTuple(curr.g + h, curr.g, h, curr.m, curr.p, curr.t, x, __trust_solution(x))
             heapq.heappush(open_set, tp)
@@ -210,7 +210,7 @@ def __search(sync_net, ini, fin, cost_function, skip):
 
             start_heuristic_time = time.time()
             h, x = __derive_heuristic(incidence_matrix, cost_vec, curr.x, t, curr.h)
-            heuristic_time = heuristic_time + time.time() - start_heuristic_time
+            heuristic_time += time.time() - start_heuristic_time
 
             tp = SearchTuple(g + h, g, h, new_marking, curr, t, x, __trust_solution(x))
             heapq.heappush(open_set, tp)
