@@ -120,6 +120,11 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
         print("Next Event: ", activity_name)
 
     if window_size > 0:
+        prefix_alignment_reverted = []
+        marking_after_prefix_alignment = initial_marking
+        cost_so_far = 0
+        upper_limit_for_search = 1999
+
         if len(prefix_alignment) > 0:
             upper_limit_for_search = prefix_alignment[-1]['cost_so_far'] + 1999
             # revert prefix alignment by window size
@@ -131,10 +136,7 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
             else:
                 marking_after_prefix_alignment = initial_marking
                 cost_so_far = 0
-        else:
-            marking_after_prefix_alignment = initial_marking
-            cost_so_far = 0
-            upper_limit_for_search = 1999
+
         if debug_print:
             print("START FROM SCRATCH -> A*")
             gviz = petri_net_visualization_factory.apply(sync_net, marking_after_prefix_alignment, final_marking,
@@ -142,7 +144,7 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
             petri_net_visualization_factory.view(gviz)
         res = __search(sync_net, marking_after_prefix_alignment, final_marking, cost_function, skip, cost_so_far,
                        upper_limit_for_search=upper_limit_for_search)
-        return {'alignment': prefix_alignment + res['alignment'],
+        return {'alignment': prefix_alignment_reverted + res['alignment'],
                 'cost': res['cost'],
                 'visited_states': res['visited_states'],
                 'queued_states': res['queued_states'],
@@ -203,7 +205,7 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                 # USE A* TO FIND NEW OPTIMAL ALIGNMENT
                 if debug_print:
                     print("START FROM SCRATCH -> A*")
-                res = __search(sync_net, initial_marking, final_marking, cost_function, skip, cost_so_far,
+                res = __search(sync_net, initial_marking, final_marking, cost_function, skip, 0,
                                upper_limit_for_search=upper_limit_for_search)
                 return {'alignment': res['alignment'],
                         'cost': res['cost'],
