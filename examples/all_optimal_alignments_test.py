@@ -11,7 +11,7 @@ from pm4py.algo.conformance.alignments.utils import print_alignments
 def execute_script(show_petri_nets):
     petri_net_1 = PetriNet("running_example")
     places = {}
-    for i in range(1, 5):
+    for i in range(1, 4):
         places['p_%i' % i] = PetriNet.Place('p_%i' % i)
         petri_net_1.places.add(places['p_%i' % i])
 
@@ -20,8 +20,7 @@ def execute_script(show_petri_nets):
         't_A': PetriNet.Transition('t_A', 'A'),
         't_B': PetriNet.Transition('t_B', 'B'),
         't_C': PetriNet.Transition('t_C', 'C'),
-        't_D': PetriNet.Transition('t_D', 'D'),
-        't_1': PetriNet.Transition('t_1', None),  # silent transition, since label=None
+
     }
 
     for transition in transitions:
@@ -31,18 +30,15 @@ def execute_script(show_petri_nets):
     petri_net_utils.add_arc_from_to(places['p_1'], transitions['t_A'], petri_net_1)
     petri_net_utils.add_arc_from_to(transitions['t_A'], places['p_2'], petri_net_1)
     petri_net_utils.add_arc_from_to(places['p_2'], transitions['t_B'], petri_net_1)
+    petri_net_utils.add_arc_from_to(places['p_2'], transitions['t_C'], petri_net_1)
+
     petri_net_utils.add_arc_from_to(transitions['t_B'], places['p_3'], petri_net_1)
-    petri_net_utils.add_arc_from_to(places['p_3'], transitions['t_C'], petri_net_1)
-    petri_net_utils.add_arc_from_to(places['p_3'], transitions['t_D'], petri_net_1)
-    petri_net_utils.add_arc_from_to(places['p_3'], transitions['t_1'], petri_net_1)
-    petri_net_utils.add_arc_from_to(transitions['t_1'], places['p_2'], petri_net_1)
-    petri_net_utils.add_arc_from_to(transitions['t_C'], places['p_4'], petri_net_1)
-    petri_net_utils.add_arc_from_to(transitions['t_D'], places['p_4'], petri_net_1)
+    petri_net_utils.add_arc_from_to(transitions['t_C'], places['p_3'], petri_net_1)
 
     initial_marking = Marking()
     initial_marking[places['p_1']] = 1
     final_marking = Marking()
-    final_marking[places['p_4']] = 1
+    final_marking[places['p_3']] = 1
 
     # petri net visualization
     if show_petri_nets:
@@ -52,7 +48,7 @@ def execute_script(show_petri_nets):
         petri_net_visualization_factory.view(gviz)
 
     traces = [
-        {"frequency": 1, "events": ["A", "B", "B", "B", "B", "B", "B", "B"]}
+        {"frequency": 1, "events": ["A", "A", "B"]}
     ]
 
     event_log = xes_importer.import_log_from_string(create_xes_string(traces))

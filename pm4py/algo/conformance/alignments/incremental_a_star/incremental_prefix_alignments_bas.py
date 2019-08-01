@@ -138,7 +138,7 @@ def __calculate_prefix_alignment_for_next_event(process_net, sync_net, initial_m
                 cost_so_far = 0
 
         if debug_print:
-            print("START FROM SCRATCH -> A*")
+            print("START FROM SCRATCH Reverted Marking")
             gviz = petri_net_visualization_factory.apply(sync_net, marking_after_prefix_alignment, final_marking,
                                                          parameters={'debug': True, "format": "svg"})
             petri_net_visualization_factory.view(gviz)
